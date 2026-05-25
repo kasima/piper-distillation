@@ -8,13 +8,14 @@ set -euo pipefail
 RUN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VOICE_ID="$(python3 -c "import json,sys;print(json.load(open(\"${RUN}/run_config.json\"))[\"teacher\"][\"voice_id\"])")"
 OUT="${RUN}/output/${VOICE_ID}"
+VOICE_LOWER="$(echo "${VOICE_ID}" | tr '[:upper:]' '[:lower:]')"
 VENV="${RUN}/.venv"
 CKPT="${RUN}/checkpoints/en_US-lessac-low-clean.ckpt"
 TRAIN_META="${OUT}/phase4-low/train_metadata.csv"
 AUDIO_DIR="${OUT}/phase3-low/audio"
 CACHE_DIR="${OUT}/phase4-low/cache"
 CFG_PATH="${OUT}/phase4-low/config.json"
-UNIT="piper-train-takashii-low"
+UNIT="piper-train-${VOICE_LOWER}-low"
 
 USED=$(nvidia-smi -i 1 --query-gpu=memory.used --format=csv,noheader,nounits | tr -d ' ')
 if [ "$USED" -gt 2000 ]; then

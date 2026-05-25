@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run B watchdog — keeps the piper-train-takashii-full systemd unit running
+# Run B watchdog — keeps the piper-train-${VOICE_LOWER}-full systemd unit running
 # until the 40000-step checkpoint exists. Resumes from latest ckpt on each
 # restart so progress is not lost.
 
@@ -8,8 +8,9 @@ set -uo pipefail  # no -e: we want to keep going on transient errors
 RUN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VOICE_ID="$(python3 -c "import json,sys;print(json.load(open(\"${RUN}/run_config.json\"))[\"teacher\"][\"voice_id\"])")"
 OUT="${RUN}/output/${VOICE_ID}"
+VOICE_LOWER="$(echo "${VOICE_ID}" | tr '[:upper:]' '[:lower:]')"
 LOG="${OUT}/logs/watchdog.log"
-UNIT="piper-train-takashii-full"
+UNIT="piper-train-${VOICE_LOWER}-full"
 CHECKPOINTS="${OUT}/phase4-full/checkpoints"
 TARGET="${CHECKPOINTS}/*step=40000*.ckpt"
 

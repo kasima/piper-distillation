@@ -17,6 +17,10 @@ from pathlib import Path
 RUN = Path(__file__).resolve().parent.parent
 import json as _piper_json
 OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+VOICE_LOWER = _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"].lower()
+UNIT_A = f"piper-train-{VOICE_LOWER}"
+UNIT_B = f"piper-train-{VOICE_LOWER}-full"
+UNIT_C = f"piper-train-{VOICE_LOWER}-low"
 VENV = RUN / ".venv"
 LOG = OUT / "logs/orchestrate.log"
 STATUS = OUT / "state/orchestrate_status.json"
@@ -182,27 +186,27 @@ def run_phase4_train() -> None:
     if list(ckpt_dir.glob("*step=40000*")) or list(ckpt_dir.glob("*step=4????*")):
         log(f"Run A already completed (checkpoints in {ckpt_dir}) — skipping")
         return
-    # If a piper-train-takashii unit is already active (e.g., we restarted
+    # If a {UNIT_A} unit is already active (e.g., we restarted
     # orchestrator mid-training), DO NOT clobber it — just monitor.
-    st = subprocess.run(["systemctl", "--user", "is-active", "piper-train-takashii"],
+    st = subprocess.run(["systemctl", "--user", "is-active", UNIT_A],
                         capture_output=True, text=True)
     if st.stdout.strip() == "active":
-        log("piper-train-takashii unit already active — monitoring existing run")
+        log(f"{UNIT_A} unit already active — monitoring existing run")
         write_status({"phase": "phase4_train", "stage": "monitoring_existing"})
     else:
         log("=== Phase 4: train ===")
         write_status({"phase": "phase4_train", "stage": "launching"})
         # Clear any prior failed unit so systemd-run can re-register
-        subprocess.run(["systemctl", "--user", "reset-failed", "piper-train-takashii"],
+        subprocess.run(["systemctl", "--user", "reset-failed", UNIT_A],
                        capture_output=True)
         rc = run_cmd(["bash", str(RUN / "scripts/phase4_train.sh")])
         if rc != 0:
             notify("Phase 4 train launch failed")
             raise SystemExit(7)
-    log("waiting for piper-train-takashii unit to complete (this can take 24-72h)")
+    log(f"waiting for {UNIT_A} unit to complete (this can take 24-72h)")
     while True:
         st = subprocess.run(
-            ["systemctl", "--user", "is-active", "piper-train-takashii"],
+            ["systemctl", "--user", "is-active", UNIT_A],
             capture_output=True, text=True,
         )
         state = st.stdout.strip()
@@ -263,24 +267,24 @@ def run_phase4b_train() -> None:
     if list(ckpt_dir.glob("*step=40000*")) or list(ckpt_dir.glob("*step=4????*")):
         log(f"Run B already completed — skipping")
         return
-    st = subprocess.run(["systemctl", "--user", "is-active", "piper-train-takashii-full"],
+    st = subprocess.run(["systemctl", "--user", "is-active", UNIT_B],
                         capture_output=True, text=True)
     if st.stdout.strip() == "active":
-        log("piper-train-takashii-full already active — monitoring existing run")
+        log(f"{UNIT_B} already active — monitoring existing run")
     else:
         log("=== Run B: train on full dataset ===")
         write_status({"phase": "phase4b_train", "stage": "launching"})
         # Phase 4 prep B
         run_cmd([str(VENV / "bin/python3"), str(RUN / "scripts/phase4b_prepare.py")], cwd=RUN)
-        subprocess.run(["systemctl", "--user", "reset-failed", "piper-train-takashii-full"],
+        subprocess.run(["systemctl", "--user", "reset-failed", UNIT_B],
                        capture_output=True)
         rc = run_cmd(["bash", str(RUN / "scripts/phase4_train_full.sh")])
         if rc != 0:
             notify("Run B train launch failed")
             raise SystemExit(11)
-    log("waiting for piper-train-takashii-full unit to complete")
+    log(f"waiting for {UNIT_B} unit to complete")
     while True:
-        st = subprocess.run(["systemctl", "--user", "is-active", "piper-train-takashii-full"],
+        st = subprocess.run(["systemctl", "--user", "is-active", UNIT_B],
                             capture_output=True, text=True)
         state = st.stdout.strip()
         write_status({"phase": "phase4b_train", "stage": state})
@@ -357,14 +361,14 @@ def run_phase4c_train() -> None:
     if list(ckpt_dir.glob("*step=30000.ckpt")):
         log("Run C already completed — skipping")
         return
-    st = subprocess.run(["systemctl", "--user", "is-active", "piper-train-takashii-low"],
+    st = subprocess.run(["systemctl", "--user", "is-active", UNIT_C],
                         capture_output=True, text=True)
     if st.stdout.strip() == "active":
-        log("piper-train-takashii-low already active — monitoring existing run")
+        log(f"{UNIT_C} already active — monitoring existing run")
     else:
         log("=== Run C: train (LOW quality) ===")
         write_status({"phase": "phase4c_train", "stage": "launching"})
-        subprocess.run(["systemctl", "--user", "reset-failed", "piper-train-takashii-low"],
+        subprocess.run(["systemctl", "--user", "reset-failed", UNIT_C],
                        capture_output=True)
         rc = run_cmd(["bash", str(RUN / "scripts/phase4_train_low.sh")])
         if rc != 0:
@@ -377,13 +381,13 @@ def run_phase4c_train() -> None:
             stdout=wd_log, stderr=subprocess.STDOUT, start_new_session=True,
         )
         log("Run C watchdog spawned")
-    log("waiting for piper-train-takashii-low (30k steps, ~2-3h)")
+    log(f"waiting for {UNIT_C} (30k steps, ~2-3h)")
     while True:
         # Exact match — prior glob *step=3????* falsely matched step=3000.ckpt
         if list(ckpt_dir.glob("*step=30000.ckpt")):
             log("Run C target reached")
             break
-        st = subprocess.run(["systemctl", "--user", "is-active", "piper-train-takashii-low"],
+        st = subprocess.run(["systemctl", "--user", "is-active", UNIT_C],
                             capture_output=True, text=True)
         state = st.stdout.strip()
         write_status({"phase": "phase4c_train", "stage": state})

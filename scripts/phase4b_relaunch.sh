@@ -8,12 +8,13 @@ set -euo pipefail
 RUN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VOICE_ID="$(python3 -c "import json,sys;print(json.load(open(\"${RUN}/run_config.json\"))[\"teacher\"][\"voice_id\"])")"
 OUT="${RUN}/output/${VOICE_ID}"
+VOICE_LOWER="$(echo "${VOICE_ID}" | tr '[:upper:]' '[:lower:]')"
 VENV="${RUN}/.venv"
 TRAIN_META="${OUT}/phase4-full/train_metadata.csv"
 AUDIO_DIR="${OUT}/phase3-full/audio"
 CACHE_DIR="${OUT}/phase4-full/cache"
 CFG_PATH="${OUT}/phase4-full/config.json"
-UNIT="piper-train-takashii-full"
+UNIT="piper-train-${VOICE_LOWER}-full"
 LESSAC="${RUN}/checkpoints/en_US-lessac-medium-clean.ckpt"
 
 # Pre-flight: GPU 1 free

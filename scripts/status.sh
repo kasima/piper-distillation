@@ -4,6 +4,7 @@
 RUN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VOICE_ID="$(python3 -c "import json,sys;print(json.load(open(\"${RUN}/run_config.json\"))[\"teacher\"][\"voice_id\"])")"
 OUT="${RUN}/output/${VOICE_ID}"
+VOICE_LOWER="$(echo "${VOICE_ID}" | tr '[:upper:]' '[:lower:]')"
 
 cat() { /bin/cat "$@" 2>/dev/null; }
 echo "===== orchestrate_status ====="

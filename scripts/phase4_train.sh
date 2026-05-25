@@ -5,21 +5,22 @@
 # Phase 4 split under phase4/train_metadata.csv + phase4/eval_metadata.csv.
 #
 # Launches as a transient user systemd unit so it survives shell exits.
-# Monitor: journalctl --user -u piper-train-takashii -f
-# Stop:    systemctl --user stop piper-train-takashii
+# Monitor: journalctl --user -u piper-train-${VOICE_LOWER} -f
+# Stop:    systemctl --user stop piper-train-${VOICE_LOWER}
 
 set -euo pipefail
 
 RUN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VOICE_ID="$(python3 -c "import json,sys;print(json.load(open(\"${RUN}/run_config.json\"))[\"teacher\"][\"voice_id\"])")"
 OUT="${RUN}/output/${VOICE_ID}"
+VOICE_LOWER="$(echo "${VOICE_ID}" | tr '[:upper:]' '[:lower:]')"
 VENV="${RUN}/.venv"
 CKPT="${RUN}/checkpoints/en_US-lessac-medium-clean.ckpt"
 TRAIN_META="${OUT}/phase4/train_metadata.csv"
 AUDIO_DIR="${OUT}/phase3/audio"
 CACHE_DIR="${OUT}/phase4/cache"
 CFG_PATH="${OUT}/phase4/config.json"
-UNIT="piper-train-takashii"
+UNIT="piper-train-${VOICE_LOWER}"
 
 # Pre-flight: vllm-aeon must be stopped (GPU 1 free)
 USED=$(nvidia-smi -i 1 --query-gpu=memory.used --format=csv,noheader,nounits | tr -d ' ')
