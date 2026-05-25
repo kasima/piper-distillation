@@ -120,8 +120,9 @@ faster same voice".
 
 ## Status
 
-Production-grade for the use case it was designed for (a single
-voice-cloning teacher → Piper VITS). Generalization is partial:
+Works for the use case it was built for (a single voice-cloning teacher
+→ Piper VITS). It's been run end-to-end exactly once. Generalization is
+partial:
 
 - ✅ Works end-to-end for English voices via espeak-ng phonemization
 - ✅ Resumable; each phase survives crashes and re-runs
