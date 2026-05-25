@@ -8,6 +8,17 @@ control surface — not a tutorial. Read top-to-bottom once, then operate on
 the scripts directly. The repo's [`README.md`](README.md) is the human-facing
 introduction; it points here for execution details.
 
+**Design intent: fully autonomous, end-to-end.** The pipeline is meant to
+run unattended for ~18 hours from kickoff to a deployed voice. Don't pause
+to ask the user for intermediate decisions, confirmation, or input. Pick
+reasonable defaults; if something is genuinely ambiguous, write a line to
+`output/<voice>/state/notifications.txt` and keep going. Halt **only** on
+the documented halt conditions below (teacher consistency below floor,
+retained audio below 2 h, NaN/OOM/divergence, etc.). Anything else —
+phoneme coverage warnings, transient HTTP failures during synth, single-
+checkpoint divergences in eval — should be logged and worked around, not
+escalated.
+
 ## What this is
 
 A 7-phase pipeline that takes:

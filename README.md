@@ -81,8 +81,11 @@ notes in `AGENTS.md` before assuming "low = faster same voice".
 
 ## How to use it
 
-This repo is meant to be operated by a coding agent. Your job as the
-human is to satisfy the prerequisites, then hand the agent a prompt.
+This repo is **meant to be operated fully autonomously by a coding agent**
+end-to-end — from setup through training to deployed voice. Your job as
+the human is to satisfy the prerequisites, then hand the agent a prompt.
+The agent shouldn't need to ping you for intermediate decisions during
+the ~18-hour run.
 
 ### Prerequisites
 
