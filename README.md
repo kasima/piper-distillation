@@ -91,25 +91,24 @@ human is to satisfy the prerequisites, then hand the agent a prompt.
 
 ### Prerequisites
 
-1. **A running OpenAI-compatible voice-cloning TTS** (qwen-tts is what
-   was tested, but anything with a `POST /v1/audio/speech` endpoint that
-   supports reference-clip voice cloning should work). Your target voice
-   must already be registered there. Note the endpoint URL and the
-   voice ID.
+1. **A running OpenAI-compatible voice-cloning TTS** with your target
+   voice already registered. The pipeline calls `POST /v1/audio/speech`
+   and expects a `voice` parameter that picks the cloned voice.
+   [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) is what was tested —
+   see its docs for how to register a voice from a reference clip. Any
+   other TTS that speaks the same API contract should work with minor
+   edits to `scripts/phase2_synthesize.py`. Note the endpoint URL and
+   the voice ID.
 
-2. **The reference audio file** that the teacher uses to clone the
-   voice. 3-10 seconds, mono, ≥16 kHz, single clean speaker. Note the
-   absolute path on the machine that will run this pipeline.
-
-3. **A GPU with ≥16 GB VRAM.** VITS training at batch 32 peaks around
+2. **A GPU with ≥16 GB VRAM.** VITS training at batch 32 peaks around
    14-15 GB; Phases 3 and 5 (Whisper-medium + ECAPA + WavLM) fit
    comfortably in the rest. The teacher TTS gets stopped (or
    time-sliced) during Phases 4-5 so it doesn't contend for memory.
 
-4. **Disk:** ~50 GB free for the working directory (12k synthesized WAVs
+3. **Disk:** ~50 GB free for the working directory (12k synthesized WAVs
    dominate; the rest is checkpoints, eval audio, logs).
 
-5. **This repo cloned to a working directory.** Everything else
+4. **This repo cloned to a working directory.** Everything else
    (system packages, `setup.sh`, config edits, pipeline run) is the
    agent's job.
 
@@ -120,11 +119,12 @@ coding agent:
 
 > Run the `piper-distillation` pipeline to distill the voice
 > `<your-teacher-voice-id>` from the TTS server at
-> `<http://your-teacher-host:port>`. The voice's reference clip is at
-> `<absolute-path-to-ref.wav>`. The deployed voice name should be
+> `<http://your-teacher-host:port>`. The deployed voice name should be
 > `en_US-<yourvoice>-medium`. Install the final ONNX into
 > `<absolute-path-to-wyoming-piper-data-dir>` and restart `piper.service`
-> after.
+> after. You can find the voice's reference clip path by inspecting the
+> teacher's voice registry (for Qwen3-TTS, that's
+> `~/.cache/qwen-tts/voices/<voice-id>/ref.wav`).
 >
 > Read `AGENTS.md` first — it's the execution reference. Install any
 > missing system packages (cmake, ninja-build, espeak-ng, wget,
