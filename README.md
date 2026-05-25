@@ -106,13 +106,12 @@ human is to satisfy the prerequisites, then hand the agent a prompt.
    comfortably in the rest. The teacher TTS gets stopped (or
    time-sliced) during Phases 4-5 so it doesn't contend for memory.
 
-4. **System packages** (Debian/Ubuntu): `cmake ninja-build espeak-ng wget python3-venv`
-
-5. **Disk:** ~50 GB free for the working directory (12k synthesized WAVs
+4. **Disk:** ~50 GB free for the working directory (12k synthesized WAVs
    dominate; the rest is checkpoints, eval audio, logs).
 
-6. **This repo cloned to a working directory.** Everything else
-   (`setup.sh`, config edits, pipeline run) is the agent's job.
+5. **This repo cloned to a working directory.** Everything else
+   (system packages, `setup.sh`, config edits, pipeline run) is the
+   agent's job.
 
 ### Agent prompt
 
@@ -127,11 +126,13 @@ coding agent:
 > `<absolute-path-to-wyoming-piper-data-dir>` and restart `piper.service`
 > after.
 >
-> Read `AGENTS.md` first — it's the execution reference. Bootstrap with
-> `bash setup.sh`, update `run_config.json` and `SERVICE_MODELS` in
-> `scripts/phase6_install.py` for the values above, then run the pipeline
-> end-to-end via `scripts/orchestrate.py`. Phase 2 takes ~13 hours; the
-> orchestrator survives shell exits and is resumable, so run it detached.
+> Read `AGENTS.md` first — it's the execution reference. Install any
+> missing system packages (cmake, ninja-build, espeak-ng, wget,
+> python3-venv); bootstrap with `bash setup.sh`; update `run_config.json`
+> and `SERVICE_MODELS` in `scripts/phase6_install.py` for the values
+> above; then run the pipeline end-to-end via `scripts/orchestrate.py`.
+> Phase 2 takes ~13 hours; the orchestrator survives shell exits and is
+> resumable, so run it detached.
 >
 > Halt and surface to me if you hit any of the halt conditions listed in
 > AGENTS.md (Phase 0 teacher consistency below threshold, Phase 3
