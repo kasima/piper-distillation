@@ -86,37 +86,70 @@ faster same voice".
 
 ## How to use it
 
-1. **Bootstrap.**
+This repo is meant to be operated by a coding agent. Your job as the
+human is to satisfy the prerequisites, then hand the agent a prompt.
+
+### Prerequisites
+
+1. **A running OpenAI-compatible voice-cloning TTS** (qwen-tts is what
+   was tested, but anything with a `POST /v1/audio/speech` endpoint that
+   supports reference-clip voice cloning should work). Your target voice
+   must already be registered there. Note the endpoint URL and the
+   voice ID.
+
+2. **The reference audio file** that the teacher uses to clone the
+   voice. 3-10 seconds, mono, ≥16 kHz, single clean speaker. Note the
+   absolute path on the machine that will run this pipeline.
+
+3. **Two GPUs (recommended), or one with enough headroom to time-share.**
+   - Teacher serving GPU: ~12 GB-class is plenty (the teacher is already
+     running, this is where it lives)
+   - Training GPU: A6000-class (≥45 GB) for VITS fine-tuning + Whisper-
+     medium QA
+   - One GPU works if the teacher's server can be stopped during Phases
+     4 and 5
+
+4. **System packages** (Debian/Ubuntu): `cmake ninja-build espeak-ng wget python3-venv`
+
+5. **Disk:** ~50 GB free for the working directory (12k synthesized WAVs
+   dominate; the rest is checkpoints, eval audio, logs).
+
+6. **This repo cloned and bootstrapped:**
    ```
    bash setup.sh
    ```
-   Creates a venv, clones a patched `piper1-gpl` fork
-   ([`kasima/piper1-gpl`](https://github.com/kasima/piper1-gpl) branch
-   `kasima/torch-2.6-compat`), downloads + cleans a Lessac warm-start
-   checkpoint. ~10 minutes on first run.
+   Creates a venv, clones the patched piper trainer fork, downloads and
+   cleans the Lessac warm-start checkpoint. ~10 minutes on first run.
 
-2. **Have an OpenAI-compatible voice-cloning TTS running** with your
-   target voice registered. The pipeline calls
-   `POST /v1/audio/speech` for synthesis; configure the endpoint and
-   voice ID in `run_config.json`. The committed values are from a worked
-   example; replace `teacher.endpoint`, `teacher.voice_id`,
-   `teacher.ref_path`, `teacher.ref_sha256`, and `voice_name` for your case.
+### Agent prompt
 
-3. **Run the pipeline.** Either chain it all via the orchestrator:
-   ```
-   nohup .venv/bin/python3 -u scripts/orchestrate.py >> logs/orchestrate.log 2>&1 < /dev/null &
-   disown
-   ```
-   …or step through phases manually (each script is idempotent and
-   resumable). Detailed phase-by-phase commands, halt conditions, and
-   resume semantics are in [`AGENTS.md`](AGENTS.md).
+Once the prerequisites are in place, paste something like this to your
+coding agent:
 
-4. **Read [`AGENTS.md`](AGENTS.md)** before doing anything non-trivial.
-   It's the dense execution reference — phase commands, halt conditions,
-   the Piper trainer patches that are required, the wyoming-piper voice-
-   naming gotcha that bites if you skip Phase 6's `phase6_install.py`.
-   Written for a coding agent (or a human in agent mode) operating the
-   pipeline.
+> Run the `piper-distillation` pipeline to distill the voice
+> `<your-teacher-voice-id>` from the TTS server running at
+> `<http://your-teacher-host:port>`. The voice's reference clip is at
+> `<absolute-path-to-ref.wav>`. The deployed voice name should be
+> `en_US-<yourvoice>-medium`.
+>
+> The full execution reference is in `AGENTS.md` — read it first. Then
+> update `run_config.json` for these values, set
+> `SERVICE_MODELS` in `scripts/phase6_install.py` to the wyoming-piper
+> data directory where you want the final ONNX installed, and run the
+> pipeline end-to-end via `scripts/orchestrate.py`. Phase 2 will take
+> ~13 hours; the orchestrator survives shell exits and is resumable, so
+> run it detached.
+>
+> Halt and surface to me if you hit any of the halt conditions listed in
+> AGENTS.md (Phase 0 teacher consistency below threshold, Phase 3
+> retained audio below 2 hours, training NaN/OOM/divergence, etc.).
+> Notify me when the final `.onnx` is installed and the smoke test
+> passes.
+
+The agent reads `AGENTS.md`, fills in the config, kicks off the run,
+and watches for halt conditions. You wake up 18 hours later to a
+deployed voice. (Or, you check in periodically — the orchestrator
+writes `state/notifications.txt` for any milestones or alerts.)
 
 ## Status
 
