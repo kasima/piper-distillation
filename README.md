@@ -1,17 +1,21 @@
 # piper-distillation
 
-Take a custom voice from an OpenAI-compatible voice-cloning TTS server
-(originally [qwen-tts](https://github.com/QwenLM/Qwen2-Audio) running
-reference-clip voice cloning) and produce a self-contained
+Distill a running OpenAI-compatible TTS server into a self-contained
 [Piper](https://github.com/OHF-Voice/piper1-gpl) VITS `.onnx` model you can
 deploy to a `wyoming-piper` host or any ONNX TTS runtime that understands
 Piper voice configs.
 
-Useful when you want to keep using a particular voice but the original
-serving stack is too heavy for real-time use. The teacher TTS is run
-once over a curated text corpus; the resulting (text, audio) pairs train a
-student Piper model that synthesizes the same voice at >40× faster than
-real-time on CPU.
+The original motivating use case was a custom voice clone in
+[Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) — a heavy server-side
+model — that we wanted to keep using but at Piper-speed and as a static
+artifact. The pipeline is teacher-agnostic: anything that exposes
+`POST /v1/audio/speech` works.
+
+Useful when you want a particular voice that exists only on a heavy
+serving stack and you'd rather have it as a small fast standalone model.
+The teacher is run once over a curated text corpus; the resulting (text,
+audio) pairs train a student Piper model that synthesizes at >40× faster
+than real-time on CPU.
 
 ## What it produces
 
@@ -26,22 +30,22 @@ directory and the voice is reachable via:
 
 ## When you'd use this
 
-You have a voice that exists only as a clone in a reference-based TTS
-(qwen-tts, XTTS, similar), and you want:
+You have a voice on a teacher TTS that's too heavy or stateful for your
+real serving needs, and you want:
 
-- Lower per-request latency than the source TTS (real-time conversational use)
-- A static, deployable artifact (no GPU server dependency at inference time)
+- Lower per-request latency than the teacher
+- A static, deployable artifact (no GPU server dependency at inference)
 - A voice servable by the broader Piper ecosystem
 
 You'd **not** use this if the voice already has a Piper model in the
 upstream catalog ([rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices)),
-if you can re-record a real speaker (cleaner training data), or if your
+if you can record a real speaker (cleaner training data), or if your
 voice needs are met by a generic neutral voice.
 
 ## How the pipeline works (conceptually)
 
 ```
-Phase 0:   characterize the teacher (does it sound consistent enough to clone?)
+Phase 0:   characterize the teacher (does it sound consistent enough to distill?)
 Phase 1:   pick a balanced 12k-sentence text corpus
 Phase 2:   synthesize all 12k sentences from the teacher
 Phase 3:   filter out the teacher's bad takes (silence, clipping, mispronunciations)
@@ -56,33 +60,29 @@ present, so the whole thing is resumable after crashes.
 
 ## Timing breakdown
 
-Approximate wall-clock for one voice (one training run). Numbers assume
-two GPUs available — one for the teacher TTS (modest, ~12 GB class), one
-for training + Whisper-medium QA (≥45 GB free, A6000-class). The two
-biggest phases (2 and 4) are the dominant cost.
+Approximate wall-clock for one voice (one training run). The two biggest
+phases (2 and 4) are the dominant cost.
 
-| Phase | What | Wall-clock | Where it runs |
-|---|---|---|---|
-| 0 | Probe teacher consistency | ~15 min | teacher GPU + embedding GPU |
-| 1 | Greedy-select 12k-sentence corpus | ~5 min | CPU |
-| 2 | Synthesize 12k clips from the teacher | **~13 h** | teacher GPU |
-| 3 | QA filter (WER + speaker verify + audio sanity) | ~1.5 h | training GPU |
-| 4 | Fine-tune Piper VITS (40k steps from Lessac) | **~3 h** | training GPU |
-| 5 | Eval top-3 checkpoints, pick winner | ~30 min | training GPU |
-| 6 | ONNX export + smoke test + install | ~5 min | CPU |
-| | **Total per voice (single training run)** | **~18 h** | |
-| | Per additional training variant (same data) | +3.5 h | training GPU |
+| Phase | What | Wall-clock |
+|---|---|---|
+| 0 | Probe teacher consistency | ~15 min |
+| 1 | Greedy-select 12k-sentence corpus | ~5 min |
+| 2 | Synthesize 12k clips from the teacher | **~13 h** |
+| 3 | QA filter (WER + speaker verify + audio sanity) | ~1.5 h |
+| 4 | Fine-tune Piper VITS (40k steps from Lessac) | **~3 h** |
+| 5 | Eval top-3 checkpoints, pick winner | ~30 min |
+| 6 | ONNX export + smoke test + install | ~5 min |
+| | **Total per voice (single training run)** | **~18 h** |
+| | Per additional training variant (same data) | +3.5 h |
 
-Phase 2 (corpus synthesis) is the long pole and depends on the teacher
-TTS's per-request latency; the figure above is for a ~1.7 B-parameter
-voice-cloning TTS at concurrency 2. A faster teacher cuts this
-proportionally.
+Phase 2 is the long pole and depends on the teacher's per-request
+latency; the figure above is for a ~1.7 B-parameter TTS at concurrency 2.
+A faster teacher cuts this proportionally.
 
 Phase 4 cap of 40k steps is conservative; Piper VITS from a Lessac
 warm-start often converges by 25-30k. Smaller architectures (`low`,
 `x_low`) train faster but produce noticeably different audio — see
-notes in `AGENTS.md` and the project follow-ups before assuming "low =
-faster same voice".
+notes in `AGENTS.md` before assuming "low = faster same voice".
 
 ## How to use it
 
@@ -91,14 +91,12 @@ human is to satisfy the prerequisites, then hand the agent a prompt.
 
 ### Prerequisites
 
-1. **A running OpenAI-compatible voice-cloning TTS** with your target
-   voice already registered. The pipeline calls `POST /v1/audio/speech`
-   and expects a `voice` parameter that picks the cloned voice.
-   [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) is what was tested —
-   see its docs for how to register a voice from a reference clip. Any
-   other TTS that speaks the same API contract should work with minor
-   edits to `scripts/phase2_synthesize.py`. Note the endpoint URL and
-   the voice ID.
+1. **A running OpenAI-compatible TTS** with your target voice
+   accessible. The pipeline calls `POST /v1/audio/speech` and expects a
+   `voice` parameter that picks the voice. Any teacher that speaks this
+   contract should work with minor edits to
+   `scripts/phase2_synthesize.py`. Note the endpoint URL and the voice
+   ID.
 
 2. **A GPU with ≥16 GB VRAM.** VITS training at batch 32 peaks around
    14-15 GB; Phases 3 and 5 (Whisper-medium + ECAPA + WavLM) fit
@@ -118,7 +116,7 @@ Once the prerequisites are in place, paste something like this to your
 coding agent:
 
 > Run the `piper-distillation` pipeline to distill the voice
-> `<your-teacher-voice-id>` from the TTS server at
+> `<your-voice-id>` from the TTS server at
 > `<http://your-teacher-host:port>`. The deployed voice name should be
 > `en_US-<yourvoice>-medium`. Install the final ONNX into
 > `<absolute-path-to-wyoming-piper-data-dir>` and restart `piper.service`
@@ -145,9 +143,8 @@ writes `state/notifications.txt` for any milestones or alerts.)
 
 ## Status
 
-Works for the use case it was built for (a single voice-cloning teacher
-→ Piper VITS). It's been run end-to-end exactly once. Generalization is
-partial:
+Works for the use case it was built for. It's been run end-to-end
+exactly once. Generalization is partial:
 
 - ✅ Works end-to-end for English voices via espeak-ng phonemization
 - ✅ Resumable; each phase survives crashes and re-runs
@@ -155,9 +152,9 @@ partial:
   systemd unit names, and a few GPU index assumptions are still hardcoded
   to the original deployment's layout. A future refactor pulls these out
   into CLI args + per-host config.
-- ⚠️ Tested only against qwen-tts as teacher. Other OpenAI-compatible
-  TTS hosts (XTTS, Coqui, ElevenLabs, etc.) should work with minimal
-  edits to `scripts/phase2_synthesize.py` but aren't tested.
+- ⚠️ Tested only against one teacher TTS. Other OpenAI-compatible TTS
+  hosts should work with minor edits to `scripts/phase2_synthesize.py`
+  but aren't tested.
 
 ## What's in the repo
 
@@ -182,6 +179,5 @@ LICENSE file before publishing). The Piper trainer they patch
 ([`OHF-Voice/piper1-gpl`](https://github.com/OHF-Voice/piper1-gpl)) is
 GPL-3.0-or-later — the fork at
 [`kasima/piper1-gpl`](https://github.com/kasima/piper1-gpl) inherits that.
-Generated voice models inherit the license of the teacher (e.g.
-qwen-tts voice clones inherit Qwen3-TTS's license terms; verify before
-redistributing).
+Generated voice models may inherit the license of the teacher's output;
+verify before redistributing.
