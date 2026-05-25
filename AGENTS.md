@@ -16,16 +16,8 @@ A 7-phase pipeline that takes:
 
 …and produces:
 - One or more `en_US-<voice>-<quality>.onnx` + `.onnx.json` files
-- Installed into a `wyoming-piper` data dir, served by the existing piper
-  service over Wyoming protocol
-
-Originally executed for the `Takashii` voice on bernard, producing three
-deliverables: `en_US-takashii-medium`, `en_US-takashii-medium-full`,
-`en_US-takashii-low`. See
-[`sysadmin/piper/journal/2026-05-25-takashii-distillation.md`](../sysadmin/piper/journal/2026-05-25-takashii-distillation.md)
-for the original run's metrics, dead-ends, and gotchas. Open issues and
-deferred improvements live in
-[`sysadmin/piper/FOLLOW_UPS.md`](../sysadmin/piper/FOLLOW_UPS.md).
+- Installed into a `wyoming-piper` data directory, served via Wyoming
+  protocol
 
 ## Pipeline at a glance
 
@@ -83,19 +75,22 @@ cmake ninja-build espeak-ng wget python3-venv
 Network access for: HuggingFace (warm-start ckpts), Project Gutenberg
 (corpus sources), pypi (deps), github.com/kasima/piper1-gpl (fork clone).
 
-Hardware: at least one GPU with ≥45 GB VRAM (training); a separate GPU or
-the same one if the teacher's TTS server can be temporarily stopped. The
-original Takashii run used an A6000 for training and a 4070 Ti for the
-qwen-tts teacher — two GPUs, no contention.
+Hardware: at least one GPU with ≥45 GB VRAM for training (A6000-class) and
+a separate ~12 GB-class GPU for the teacher TTS — or the same GPU if you
+can stop the teacher's server during Phases 4-5. Two GPUs is the
+recommended layout (no contention; the teacher stays up to serve other
+clients during the 13-hour Phase 2).
 
-A running teacher: a qwen-tts service (or any OpenAI-compatible TTS) with
-the target voice registered. For qwen-tts on bernard, see
-[`sysadmin/qwen-tts/README.md`](../sysadmin/qwen-tts/README.md) §"Adding a
-voice to the base variant."
+A running teacher: a voice-cloning TTS exposing
+`POST /v1/audio/speech` (qwen-tts works; any OpenAI-compatible TTS that
+supports reference-based voice cloning should work with minor edits to
+`scripts/phase2_synthesize.py`). The target voice must already be
+registered in the teacher.
 
-A target wyoming-piper service (or any process that scans an `.onnx` data
-dir) where Phase 6 should install the result. For bernard, see
-[`sysadmin/piper/README.md`](../sysadmin/piper/README.md).
+A target `wyoming-piper` data directory where Phase 6 installs the result.
+Configure the install path in `scripts/phase6_install.py`
+(`SERVICE_MODELS` constant) — by default it points at a host-specific
+location and you'll want to change this for a new deployment.
 
 ## First-time setup
 
@@ -109,8 +104,10 @@ work that's already done.
 
 Set `SETUP_FETCH_LOW=1 bash setup.sh` to additionally download the Lessac
 LOW warm-start checkpoint (only needed if you intend to train a "low"
-quality variant — see [FOLLOW_UPS](../sysadmin/piper/FOLLOW_UPS.md) for
-why "low" isn't always what you'd guess).
+quality variant — note that the Piper "low" quality is 16 kHz output and
+produces noticeably different pronunciation than the medium variant on
+the same data, not just a downsampled version; treat it as a separate
+voice).
 
 ## Running the pipeline for a new voice
 
@@ -127,9 +124,10 @@ Critical fields:
 - `host.training_gpu_index` / `teacher_gpu_index`: confirm the GPU
   indices match the actual host
 
-The rest can stay as-is for Takashii-style runs. For an English voice with
-similar character, the existing thresholds work; for a wildly different
-voice, expect to recalibrate after Phase 0.
+The rest can stay as-is for typical English-voice runs. For a wildly
+different voice (e.g., heavy accent, very different fundamental
+frequency), expect to recalibrate Phase 3 thresholds after Phase 0
+measures the teacher's natural variance.
 
 ### 2. Phase 0 — probe the teacher
 
@@ -251,14 +249,19 @@ consistency). Manifest at `state/phase5{,-full}/manifest.json`.
 sudo systemctl restart piper
 ```
 
-The script writes `<voice>.onnx` + `<voice>.onnx.json` to
-`~/src/sysadmin/piper/models/` (verify this matches your wyoming-piper
-data dir), runs a 30-clip smoke test, and writes a model card.
+The script writes `<voice>.onnx` + `<voice>.onnx.json` to the path in
+`SERVICE_MODELS` (edit `scripts/phase6_install.py` if your wyoming-piper
+data directory is elsewhere), runs a 30-clip smoke test, and writes a
+model card.
 
 The `.onnx.json` `dataset` field is set to the voice_name automatically.
-Critical gotcha — see
-[`reference_wyoming_piper_custom_voice_naming.md`](~/.claude/projects/-home-kasima-src-sysadmin/memory/reference_wyoming_piper_custom_voice_naming.md)
-in long-term memory for why.
+**Critical gotcha**: `wyoming-piper`'s custom-voice discovery uses the
+JSON `dataset` field as the voice name advertised to clients (e.g., Home
+Assistant), but the synth handler then calls `find_voice(voice_name)`
+which expects `{voice_name}.onnx` on disk. **The `dataset` field must
+equal the .onnx filename stem** or every synth request fails with
+`VoiceNotFoundError`. Don't override this; `phase6_install.py` enforces
+it.
 
 ## Orchestration (chain it all)
 
@@ -308,12 +311,21 @@ Resumability: each phase is restartable. Phases 2, 3, 4 have explicit
 `done.txt` / checkpoint-based resume. Phases 1, 5, 6 are cheap enough to
 re-run end-to-end.
 
-## Future-work toolkit-repo extraction
+## Future-work toolkit extraction
 
-Open work — see
-[`sysadmin/piper/FOLLOW_UPS.md`](../sysadmin/piper/FOLLOW_UPS.md). Goal:
-factor `scripts/` into a standalone Python package that takes
-`(sample_wav, transcript, voice_name)` and produces a deployed voice with
-no manual editing required. The pieces are all here; what's missing is
-parameterizing the path/voice/quality config into a single command-line
-entrypoint.
+The pieces are all here, but the scripts still carry a few host-specific
+assumptions (install path in `phase6_install.py`, systemd unit naming,
+GPU index assumptions). A future refactor would:
+
+1. Parameterize all paths via CLI args + a single per-host config file
+   (not embedded in `run_config.json` which is per-voice)
+2. Replace systemd-based train launching with a portable backend
+   (subprocess + PID file, or a thin wrapper that detects systemd vs
+   non-systemd)
+3. Auto-detect GPU layout via `nvidia-smi` rather than assume specific
+   indices
+4. Package as `pip install piper-distillation` with a single
+   `piper-distill --ref-wav … --voice-name … --teacher-url …` entrypoint
+
+None of this changes the pipeline's *semantics*; just makes it deployable
+on more than the original host without surgery.
