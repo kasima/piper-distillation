@@ -122,9 +122,7 @@ coding agent:
 > `<http://your-teacher-host:port>`. The deployed voice name should be
 > `en_US-<yourvoice>-medium`. Install the final ONNX into
 > `<absolute-path-to-wyoming-piper-data-dir>` and restart `piper.service`
-> after. You can find the voice's reference clip path by inspecting the
-> teacher's voice registry (for Qwen3-TTS, that's
-> `~/.cache/qwen-tts/voices/<voice-id>/ref.wav`).
+> after.
 >
 > Read `AGENTS.md` first — it's the execution reference. Install any
 > missing system packages (cmake, ninja-build, espeak-ng, wget,
