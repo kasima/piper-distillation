@@ -101,13 +101,10 @@ human is to satisfy the prerequisites, then hand the agent a prompt.
    voice. 3-10 seconds, mono, ≥16 kHz, single clean speaker. Note the
    absolute path on the machine that will run this pipeline.
 
-3. **Two GPUs (recommended), or one with enough headroom to time-share.**
-   - Teacher serving GPU: ~12 GB-class is plenty (the teacher is already
-     running, this is where it lives)
-   - Training GPU: A6000-class (≥45 GB) for VITS fine-tuning + Whisper-
-     medium QA
-   - One GPU works if the teacher's server can be stopped during Phases
-     4 and 5
+3. **A GPU with ≥16 GB VRAM.** VITS training at batch 32 peaks around
+   14-15 GB; Phases 3 and 5 (Whisper-medium + ECAPA + WavLM) fit
+   comfortably in the rest. The teacher TTS gets stopped (or
+   time-sliced) during Phases 4-5 so it doesn't contend for memory.
 
 4. **System packages** (Debian/Ubuntu): `cmake ninja-build espeak-ng wget python3-venv`
 
