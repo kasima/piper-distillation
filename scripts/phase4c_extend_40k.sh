@@ -4,16 +4,18 @@
 set -uo pipefail
 
 RUN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VOICE_ID="$(python3 -c "import json,sys;print(json.load(open(\"${RUN}/run_config.json\"))[\"teacher\"][\"voice_id\"])")"
+OUT="${RUN}/output/${VOICE_ID}"
 VENV="${RUN}/.venv"
 UNIT="piper-train-takashii-low"
-CKPT_DIR="${RUN}/phase4-low/checkpoints"
-LOG="${RUN}/logs/extend_c_40k.log"
-TRAIN_META="${RUN}/phase4-low/train_metadata.csv"
-AUDIO_DIR="${RUN}/phase3-low/audio"
-CACHE_DIR="${RUN}/phase4-low/cache"
-CFG_PATH="${RUN}/phase4-low/config.json"
+CKPT_DIR="${OUT}/phase4-low/checkpoints"
+LOG="${OUT}/logs/extend_c_40k.log"
+TRAIN_META="${OUT}/phase4-low/train_metadata.csv"
+AUDIO_DIR="${OUT}/phase3-low/audio"
+CACHE_DIR="${OUT}/phase4-low/cache"
+CFG_PATH="${OUT}/phase4-low/config.json"
 
-mkdir -p "${RUN}/logs"
+mkdir -p "${OUT}/logs"
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "${LOG}"; }
 log "extend-C-40k starting (PID $$)"
 
@@ -93,7 +95,7 @@ sleep 5
 
 # 5. Phase 5C eval on last 3 ckpts (38k, 39k, 40k)
 log "step 5/7: Phase 5C eval"
-rm -rf "${RUN}/state/phase5-low/"*
+rm -rf "${OUT}/state/phase5-low/"*
 CKPTS=$(ls "${CKPT_DIR}"/*step=38000.ckpt "${CKPT_DIR}"/*step=39000.ckpt "${CKPT_DIR}"/*step=40000.ckpt 2>/dev/null)
 EVAL_ARGS=""
 for c in ${CKPTS}; do EVAL_ARGS="${EVAL_ARGS} --checkpoint ${c}"; done
@@ -110,14 +112,14 @@ fi
 log "step 6/7: Phase 6C install"
 WINNER=$("${VENV}/bin/python3" -c "
 import json
-print(json.load(open('${RUN}/state/phase5-low/manifest.json'))['winner'])
+print(json.load(open('${OUT}/state/phase5-low/manifest.json'))['winner'])
 ")
-METRICS="${RUN}/state/phase5-low/$(basename ${WINNER} .ckpt)/metrics.json"
+METRICS="${OUT}/state/phase5-low/$(basename ${WINNER} .ckpt)/metrics.json"
 log "winner: $(basename ${WINNER})"
 "${VENV}/bin/python3" "${RUN}/scripts/phase6_install.py" \
   --checkpoint "${WINNER}" \
   --voice-name "en_US-takashii-low" \
-  --training-config "${RUN}/phase4-low/config.json" \
+  --training-config "${OUT}/phase4-low/config.json" \
   --dataset-label "takashii_full_11713_16khz_40k" \
   --metrics-json "${METRICS}" \
   --no-restart-service >> "${LOG}" 2>&1
@@ -131,4 +133,4 @@ sleep 5
 
 log "EXTEND-C-40K COMPLETE"
 echo "$(date): Run C extended to step=40000 and redeployed" \
-  >> "${RUN}/state/notifications.txt"
+  >> "${OUT}/state/notifications.txt"

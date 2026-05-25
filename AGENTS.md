@@ -39,31 +39,41 @@ script `scripts/orchestrate.py` chains them all and survives shell exits.
 
 ```
 scripts/                       all pipeline code (Python + bash)
-run_config.json                voice-specific config (paths, teacher endpoint, GPU pinning, quality bar)
+scripts/probe_sentences.txt    60-sentence accent-diagnostic probe set (voice-agnostic, seeds Phase 0)
+run_config.json                active per-voice config (teacher endpoint, voice_id, GPU pinning, quality bar)
 setup.sh                       one-shot bootstrap (venv, fork, warm-start ckpts)
+README.md                      human-facing intro
+AGENTS.md                      this file (dense agent execution reference)
 
-checkpoints/                   warm-start Lessac ckpts (downloaded by setup.sh)
-piper1-gpl/                    cloned + patched piper trainer (cloned by setup.sh from github.com/kasima/piper1-gpl)
+checkpoints/                   warm-start Lessac ckpts (shared across voices; downloaded by setup.sh)
+piper1-gpl/                    cloned + patched piper trainer (cloned by setup.sh)
 .venv/                         project Python venv
 
-phase1/sources/                Gutenberg source text
-phase1/corpus.txt              greedy-selected 12000 sentences
-phase2/audio_raw/              12000 teacher WAVs at 24 kHz
-phase3/audio/                  filtered + 22 kHz resampled (Run A input)
-phase3-full/audio/             full set (curated + recovered WER drops) (Run B input)
-phase3-low/audio/              full set resampled to 16 kHz (Run C input)
-phase4{,-full,-low}/checkpoints/  per-run training checkpoints
-phase4{,-full,-low}/{cache,logs,config.json,*_metadata.csv}  per-run state
-phase5{,-full,-low}/<step>/    per-checkpoint eval clips + metrics
-phase6{,-full,-low}/<voice>/   per-voice deliverable (onnx + json + smoke + model_card.md)
-
-state/phase{0..6}{,-full,-low}/manifest.json   per-phase manifests
-state/notifications.txt        timestamped alerts during a run
-logs/                          per-phase stdout/stderr
+output/<voice_id>/             ALL per-run artifacts, keyed by run_config.json's teacher.voice_id
+  phase1/sources/                Gutenberg source text
+  phase1/corpus.txt              greedy-selected 12000 sentences
+  phase2/audio_raw/              12000 teacher WAVs at 24 kHz
+  phase3/audio/                  filtered + 22 kHz resampled (Run A input)
+  phase3-full/audio/             full set (curated + recovered WER drops) (Run B input)
+  phase3-low/audio/              full set resampled to 16 kHz (Run C input)
+  phase4{,-full,-low}/checkpoints/  per-run training checkpoints
+  phase4{,-full,-low}/{cache,logs,config.json,*_metadata.csv}  per-run state
+  phase5{,-full,-low}/<step>/    per-checkpoint eval clips + metrics
+  phase6{,-full,-low}/<voice>/   per-voice deliverable (onnx + json + smoke + model_card.md)
+  state/phase{0..6}{,-full,-low}/manifest.json   per-phase manifests
+  state/notifications.txt        timestamped alerts during a run
+  logs/                          per-phase stdout/stderr
 ```
 
-Everything below the dashed line is gitignored. Only `scripts/`,
-`run_config.json`, `setup.sh`, `README.md`, `.gitignore` are versioned.
+Scripts derive `OUT = repo_root / "output" / <voice_id>` at import time by
+reading `run_config.json`. All phase outputs land under `OUT/`. Switching
+voices means editing `run_config.json` (specifically `teacher.voice_id` +
+`voice_name`); previous voices' artifacts remain in their own
+`output/<previous_voice_id>/` dirs.
+
+Everything under `output/`, `checkpoints/`, `piper1-gpl/`, and `.venv/`
+is gitignored. Only `scripts/`, `run_config.json`, `setup.sh`, `README.md`,
+`AGENTS.md`, `.gitignore` are versioned.
 
 ## Prerequisites
 

@@ -10,23 +10,8 @@ piper1-gpl/
 # --- warm-start checkpoints (downloaded via setup.sh) ---
 checkpoints/
 
-# --- per-run artifacts (all regeneratable) ---
-state/
-logs/
-phase1/sources/
-phase1/corpus.txt
-phase1/corpus.tsv
-phase1/phonemes_cache.tsv
-phase2/
-phase3/
-phase3-*/
-phase4/
-phase4-*/
-phase5/
-phase5-*/
-phase6/
-phase6-*/
-.cache/
+# --- all per-run artifacts live under output/<voice_id>/ ---
+output/
 
 # OS detritus
 .DS_Store

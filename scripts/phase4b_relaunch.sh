@@ -6,11 +6,13 @@
 set -euo pipefail
 
 RUN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VOICE_ID="$(python3 -c "import json,sys;print(json.load(open(\"${RUN}/run_config.json\"))[\"teacher\"][\"voice_id\"])")"
+OUT="${RUN}/output/${VOICE_ID}"
 VENV="${RUN}/.venv"
-TRAIN_META="${RUN}/phase4-full/train_metadata.csv"
-AUDIO_DIR="${RUN}/phase3-full/audio"
-CACHE_DIR="${RUN}/phase4-full/cache"
-CFG_PATH="${RUN}/phase4-full/config.json"
+TRAIN_META="${OUT}/phase4-full/train_metadata.csv"
+AUDIO_DIR="${OUT}/phase3-full/audio"
+CACHE_DIR="${OUT}/phase4-full/cache"
+CFG_PATH="${OUT}/phase4-full/config.json"
 UNIT="piper-train-takashii-full"
 LESSAC="${RUN}/checkpoints/en_US-lessac-medium-clean.ckpt"
 
@@ -23,7 +25,7 @@ fi
 
 # Pick the latest checkpoint as resume point (Lightning's ckpt_path restores
 # optimizer/epoch/step). Fall back to Lessac if none.
-LATEST=$(ls -t "${RUN}/phase4-full/checkpoints"/*step=*.ckpt 2>/dev/null | head -1 || true)
+LATEST=$(ls -t "${OUT}/phase4-full/checkpoints"/*step=*.ckpt 2>/dev/null | head -1 || true)
 if [ -n "${LATEST}" ]; then
   CKPT="${LATEST}"
   echo "[relaunch] resuming from ${LATEST##*/}"
@@ -33,7 +35,7 @@ else
 fi
 
 BATCH=${PIPER_BATCH:-32}
-mkdir -p "${CACHE_DIR}" "${RUN}/phase4-full/logs"
+mkdir -p "${CACHE_DIR}" "${OUT}/phase4-full/logs"
 
 # Clear any prior failed transient unit
 systemctl --user reset-failed "${UNIT}" 2>/dev/null || true
@@ -60,7 +62,7 @@ systemd-run --user \
     --trainer.val_check_interval 0.5 \
     --trainer.check_val_every_n_epoch 1 \
     --trainer.callbacks+=ModelCheckpoint \
-    --trainer.callbacks.dirpath="${RUN}/phase4-full/checkpoints" \
+    --trainer.callbacks.dirpath="${OUT}/phase4-full/checkpoints" \
     --trainer.callbacks.save_top_k=-1 \
     --trainer.callbacks.every_n_train_steps=1000 \
     --ckpt_path "${CKPT}"

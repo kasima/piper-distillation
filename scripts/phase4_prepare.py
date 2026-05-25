@@ -18,18 +18,20 @@ import random
 from pathlib import Path
 
 RUN = Path(__file__).resolve().parent.parent
-META = RUN / "phase3/metadata.csv"
-AUDIO = RUN / "phase3/audio"
-TRAIN_META = RUN / "phase4/train_metadata.csv"
-EVAL_META = RUN / "phase4/eval_metadata.csv"
-STATE = RUN / "state/phase4"
+import json as _piper_json
+OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+META = OUT / "phase3/metadata.csv"
+AUDIO = OUT / "phase3/audio"
+TRAIN_META = OUT / "phase4/train_metadata.csv"
+EVAL_META = OUT / "phase4/eval_metadata.csv"
+STATE = OUT / "state/phase4"
 
 EVAL_SIZE = 250  # 200 random + 50 accent-diagnostic stand-ins
 
 
 def main() -> None:
     STATE.mkdir(parents=True, exist_ok=True)
-    (RUN / "phase4").mkdir(parents=True, exist_ok=True)
+    (OUT / "phase4").mkdir(parents=True, exist_ok=True)
 
     rows = []
     with META.open() as f:

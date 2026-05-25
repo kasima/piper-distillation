@@ -4,17 +4,19 @@
 set -euo pipefail
 
 RUN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VOICE_ID="$(python3 -c "import json,sys;print(json.load(open(\"${RUN}/run_config.json\"))[\"teacher\"][\"voice_id\"])")"
+OUT="${RUN}/output/${VOICE_ID}"
 VENV="${RUN}/.venv"
-STATE="${RUN}/state/phase6"
+STATE="${OUT}/state/phase6"
 mkdir -p "${STATE}"
 
-WINNER=$(jq -r '.winner' "${RUN}/state/phase5/manifest.json")
+WINNER=$(jq -r '.winner' "${OUT}/state/phase5/manifest.json")
 if [ ! -f "${WINNER}" ]; then
   echo "winner checkpoint not found: ${WINNER}" >&2
   exit 1
 fi
 
-OUT_DIR="${RUN}/phase6/en_US-takashii-medium"
+OUT_DIR="${OUT}/phase6/en_US-takashii-medium"
 mkdir -p "${OUT_DIR}"
 
 ONNX="${OUT_DIR}/en_US-takashii-medium.onnx"
@@ -30,7 +32,7 @@ echo "=== smoke test (30 sentences) ==="
 SMOKE_DIR="${OUT_DIR}/smoke_test"
 mkdir -p "${SMOKE_DIR}"
 i=0
-head -30 "${RUN}/phase4/eval_metadata.csv" | while IFS='|' read -r sid sentence; do
+head -30 "${OUT}/phase4/eval_metadata.csv" | while IFS='|' read -r sid sentence; do
   out="${SMOKE_DIR}/${sid}.wav"
   echo "$sentence" | "${VENV}/bin/python3" -m piper \
     --model "${ONNX}" \

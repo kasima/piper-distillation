@@ -15,10 +15,12 @@ import time
 from pathlib import Path
 
 RUN = Path(__file__).resolve().parent.parent
+import json as _piper_json
+OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
 VENV = RUN / ".venv"
-LOG = RUN / "logs/orchestrate.log"
-STATUS = RUN / "state/orchestrate_status.json"
-NOTIFY = RUN / "state/notifications.txt"
+LOG = OUT / "logs/orchestrate.log"
+STATUS = OUT / "state/orchestrate_status.json"
+NOTIFY = OUT / "state/notifications.txt"
 
 CORPUS_SIZE = 12000
 
@@ -50,8 +52,8 @@ def run_cmd(cmd: list[str], cwd: Path | None = None, env: dict | None = None) ->
 
 def wait_for_phase2() -> None:
     log("waiting for Phase 2 synthesis to finish")
-    done_file = RUN / "state/phase2/done.txt"
-    pid_file = RUN / "state/phase2/pid"
+    done_file = OUT / "state/phase2/done.txt"
+    pid_file = OUT / "state/phase2/pid"
     last_done = -1
     last_change = time.time()
     while True:
@@ -104,7 +106,7 @@ def wait_for_phase2() -> None:
 
 def relaunch_phase2() -> None:
     log("relaunching Phase 2")
-    out = RUN / "logs/phase2.log"
+    out = OUT / "logs/phase2.log"
     cmd = [str(VENV / "bin/python3"), str(RUN / "scripts/phase2_synthesize.py")]
     with out.open("a") as logf:
         proc = subprocess.Popen(
@@ -112,12 +114,12 @@ def relaunch_phase2() -> None:
             stdout=logf, stderr=logf,
             start_new_session=True,
         )
-    (RUN / "state/phase2/pid").write_text(f"{proc.pid}\n")
+    (OUT / "state/phase2/pid").write_text(f"{proc.pid}\n")
     log(f"Phase 2 relaunched PID {proc.pid}")
 
 
 def run_phase3() -> None:
-    manifest_path = RUN / "state/phase3/manifest.json"
+    manifest_path = OUT / "state/phase3/manifest.json"
     if manifest_path.exists():
         m = json.loads(manifest_path.read_text())
         log(f"Phase 3 already done (manifest present): retained {m.get('retained')} clips ({m.get('retained_hours', 0):.2f}h) — skipping")
@@ -162,7 +164,7 @@ def start_vllm_aeon() -> None:
 
 
 def run_phase4_prep() -> None:
-    prep_manifest = RUN / "state/phase4/prep_manifest.json"
+    prep_manifest = OUT / "state/phase4/prep_manifest.json"
     if prep_manifest.exists():
         log("Phase 4 prep already done — skipping")
         return
@@ -176,7 +178,7 @@ def run_phase4_prep() -> None:
 
 def run_phase4_train() -> None:
     # Skip if Run A already completed (40k-step checkpoint exists).
-    ckpt_dir = RUN / "phase4/checkpoints"
+    ckpt_dir = OUT / "phase4/checkpoints"
     if list(ckpt_dir.glob("*step=40000*")) or list(ckpt_dir.glob("*step=4????*")):
         log(f"Run A already completed (checkpoints in {ckpt_dir}) — skipping")
         return
@@ -211,7 +213,7 @@ def run_phase4_train() -> None:
 
 
 def pick_top_checkpoints(k: int = 3) -> list[Path]:
-    ckpt_dir = RUN / "phase4/checkpoints"
+    ckpt_dir = OUT / "phase4/checkpoints"
     ckpts = sorted(ckpt_dir.glob("*.ckpt"), key=lambda p: p.stat().st_mtime)
     # MVP: pick last k checkpoints (best converged + last 2 prior for variance check)
     return ckpts[-k:] if ckpts else []
@@ -237,14 +239,14 @@ def run_phase6() -> None:
     """Phase 6 for Run A — install winning curated checkpoint into piper service."""
     log("=== Phase 6: Run A install ===")
     write_status({"phase": "phase6"})
-    p5 = json.loads((RUN / "state/phase5/manifest.json").read_text())
+    p5 = json.loads((OUT / "state/phase5/manifest.json").read_text())
     winner = p5["winner"]
     metrics_json = Path(winner).parent.parent.parent / "state/phase5" / Path(winner).stem / "metrics.json"
     rc = run_cmd([
         str(VENV / "bin/python3"), str(RUN / "scripts/phase6_install.py"),
         "--checkpoint", winner,
         "--voice-name", "en_US-takashii-medium",
-        "--training-config", str(RUN / "phase4/config.json"),
+        "--training-config", str(OUT / "phase4/config.json"),
         "--dataset-label", "takashii_curated_8143",
         "--metrics-json", str(metrics_json),
         "--no-restart-service",
@@ -257,7 +259,7 @@ def run_phase6() -> None:
 def run_phase4b_train() -> None:
     """Run B: train on FULL dataset (curated + recovered WER drops)."""
     # Skip if Run B already completed (40k-step checkpoint exists).
-    ckpt_dir = RUN / "phase4-full/checkpoints"
+    ckpt_dir = OUT / "phase4-full/checkpoints"
     if list(ckpt_dir.glob("*step=40000*")) or list(ckpt_dir.glob("*step=4????*")):
         log(f"Run B already completed — skipping")
         return
@@ -290,7 +292,7 @@ def run_phase4b_train() -> None:
 def run_phase5b() -> None:
     log("=== Run B Phase 5: eval ===")
     write_status({"phase": "phase5b"})
-    ckpt_dir = RUN / "phase4-full/checkpoints"
+    ckpt_dir = OUT / "phase4-full/checkpoints"
     ckpts = sorted(ckpt_dir.glob("*.ckpt"), key=lambda p: p.stat().st_mtime)[-3:]
     if not ckpts:
         notify("Run B Phase 5: no checkpoints found")
@@ -313,14 +315,14 @@ def run_phase6b() -> None:
     """Install Run B's Phase 5 winner as en_US-takashii-medium-full."""
     log("=== Run B Phase 6: install ===")
     write_status({"phase": "phase6b"})
-    p5b_manifest_path = RUN / "state/phase5-full/manifest.json"
+    p5b_manifest_path = OUT / "state/phase5-full/manifest.json"
     if p5b_manifest_path.exists():
         p5 = json.loads(p5b_manifest_path.read_text())
         winner = p5["winner"]
-        metrics_json = RUN / "state/phase5-full" / Path(winner).stem / "metrics.json"
+        metrics_json = OUT / "state/phase5-full" / Path(winner).stem / "metrics.json"
     else:
         # fallback to last checkpoint
-        ckpt_dir = RUN / "phase4-full/checkpoints"
+        ckpt_dir = OUT / "phase4-full/checkpoints"
         ckpts = sorted(ckpt_dir.glob("*.ckpt"), key=lambda p: p.stat().st_mtime)
         winner = str(ckpts[-1]) if ckpts else None
         metrics_json = None
@@ -331,7 +333,7 @@ def run_phase6b() -> None:
         str(VENV / "bin/python3"), str(RUN / "scripts/phase6_install.py"),
         "--checkpoint", winner,
         "--voice-name", "en_US-takashii-medium-full",
-        "--training-config", str(RUN / "phase4-full/config.json"),
+        "--training-config", str(OUT / "phase4-full/config.json"),
         "--dataset-label", "takashii_full_11713",
         "--no-restart-service",
     ]
@@ -350,7 +352,7 @@ def restart_piper_service() -> None:
 
 def run_phase4c_train() -> None:
     """Run C: train LOW-quality (16 kHz) on the full dataset."""
-    ckpt_dir = RUN / "phase4-low/checkpoints"
+    ckpt_dir = OUT / "phase4-low/checkpoints"
     # Exact-step match (the previous *step=3????* glob falsely matched step=3000)
     if list(ckpt_dir.glob("*step=30000.ckpt")):
         log("Run C already completed — skipping")
@@ -369,7 +371,7 @@ def run_phase4c_train() -> None:
             notify("Run C train launch failed")
             raise SystemExit(15)
         # Also kick off the Run C watchdog as a sibling process
-        wd_log = (RUN / "logs/watchdog_c.log").open("a")
+        wd_log = (OUT / "logs/watchdog_c.log").open("a")
         subprocess.Popen(
             ["bash", str(RUN / "scripts/phase4c_watchdog.sh")],
             stdout=wd_log, stderr=subprocess.STDOUT, start_new_session=True,
@@ -393,7 +395,7 @@ def run_phase4c_train() -> None:
 def run_phase5c() -> None:
     log("=== Run C Phase 5: eval (low) ===")
     write_status({"phase": "phase5c"})
-    ckpt_dir = RUN / "phase4-low/checkpoints"
+    ckpt_dir = OUT / "phase4-low/checkpoints"
     ckpts = sorted(ckpt_dir.glob("*.ckpt"), key=lambda p: p.stat().st_mtime)[-3:]
     if not ckpts:
         notify("Run C Phase 5: no checkpoints found")
@@ -412,13 +414,13 @@ def run_phase5c() -> None:
 def run_phase6c() -> None:
     log("=== Run C Phase 6: install (low) ===")
     write_status({"phase": "phase6c"})
-    p5c_manifest_path = RUN / "state/phase5-low/manifest.json"
+    p5c_manifest_path = OUT / "state/phase5-low/manifest.json"
     if p5c_manifest_path.exists():
         p5 = json.loads(p5c_manifest_path.read_text())
         winner = p5["winner"]
-        metrics_json = RUN / "state/phase5-low" / Path(winner).stem / "metrics.json"
+        metrics_json = OUT / "state/phase5-low" / Path(winner).stem / "metrics.json"
     else:
-        ckpt_dir = RUN / "phase4-low/checkpoints"
+        ckpt_dir = OUT / "phase4-low/checkpoints"
         ckpts = sorted(ckpt_dir.glob("*.ckpt"), key=lambda p: p.stat().st_mtime)
         winner = str(ckpts[-1]) if ckpts else None
         metrics_json = None
@@ -429,7 +431,7 @@ def run_phase6c() -> None:
         str(VENV / "bin/python3"), str(RUN / "scripts/phase6_install.py"),
         "--checkpoint", winner,
         "--voice-name", "en_US-takashii-low",
-        "--training-config", str(RUN / "phase4-low/config.json"),
+        "--training-config", str(OUT / "phase4-low/config.json"),
         "--dataset-label", "takashii_full_11713_16khz",
         "--no-restart-service",
     ]

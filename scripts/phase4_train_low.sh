@@ -6,12 +6,14 @@
 set -euo pipefail
 
 RUN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VOICE_ID="$(python3 -c "import json,sys;print(json.load(open(\"${RUN}/run_config.json\"))[\"teacher\"][\"voice_id\"])")"
+OUT="${RUN}/output/${VOICE_ID}"
 VENV="${RUN}/.venv"
 CKPT="${RUN}/checkpoints/en_US-lessac-low-clean.ckpt"
-TRAIN_META="${RUN}/phase4-low/train_metadata.csv"
-AUDIO_DIR="${RUN}/phase3-low/audio"
-CACHE_DIR="${RUN}/phase4-low/cache"
-CFG_PATH="${RUN}/phase4-low/config.json"
+TRAIN_META="${OUT}/phase4-low/train_metadata.csv"
+AUDIO_DIR="${OUT}/phase3-low/audio"
+CACHE_DIR="${OUT}/phase4-low/cache"
+CFG_PATH="${OUT}/phase4-low/config.json"
 UNIT="piper-train-takashii-low"
 
 USED=$(nvidia-smi -i 1 --query-gpu=memory.used --format=csv,noheader,nounits | tr -d ' ')
@@ -22,7 +24,7 @@ fi
 echo "GPU 1 free (used=${USED} MiB)"
 
 BATCH=${PIPER_BATCH:-32}
-mkdir -p "${CACHE_DIR}" "${RUN}/phase4-low/logs" "${RUN}/phase4-low/checkpoints"
+mkdir -p "${CACHE_DIR}" "${OUT}/phase4-low/logs" "${OUT}/phase4-low/checkpoints"
 
 systemd-run --user \
   --unit="${UNIT}" \
@@ -45,7 +47,7 @@ systemd-run --user \
     --trainer.val_check_interval 0.5 \
     --trainer.check_val_every_n_epoch 1 \
     --trainer.callbacks+=ModelCheckpoint \
-    --trainer.callbacks.dirpath="${RUN}/phase4-low/checkpoints" \
+    --trainer.callbacks.dirpath="${OUT}/phase4-low/checkpoints" \
     --trainer.callbacks.save_top_k=-1 \
     --trainer.callbacks.every_n_train_steps=1000 \
     --ckpt_path "${CKPT}"

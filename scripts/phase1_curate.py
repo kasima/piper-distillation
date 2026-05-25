@@ -29,11 +29,13 @@ from collections import Counter
 from pathlib import Path
 
 RUN = Path(__file__).resolve().parent.parent
-SOURCES = RUN / "phase1/sources"
-OUT_CORPUS = RUN / "phase1/corpus.txt"
-OUT_TSV = RUN / "phase1/corpus.tsv"
-OUT_PHONE_CACHE = RUN / "phase1/phonemes_cache.tsv"
-STATE = RUN / "state/phase1"
+import json as _piper_json
+OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+SOURCES = OUT / "phase1/sources"
+OUT_CORPUS = OUT / "phase1/corpus.txt"
+OUT_TSV = OUT / "phase1/corpus.tsv"
+OUT_PHONE_CACHE = OUT / "phase1/phonemes_cache.tsv"
+STATE = OUT / "state/phase1"
 
 TARGET_SIZE = 12000
 COVERAGE_BIGRAM_FLOOR_RARE = 20

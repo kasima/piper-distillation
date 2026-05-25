@@ -27,9 +27,11 @@ import torch.nn.functional as F
 from transformers import AutoFeatureExtractor, WavLMForXVector
 
 RUN = Path(__file__).resolve().parent.parent
-CLIPS = RUN_DIR / "state/phase0/clips"
-OUT_DIR = RUN_DIR / "state/phase0"
-PROBE = RUN_DIR / "state/phase0/probe_sentences.txt"
+import json as _piper_json
+OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+CLIPS = OUT / "state/phase0/clips"
+OUT_DIR = OUT / "state/phase0"
+PROBE = OUT / "state/phase0/probe_sentences.txt"
 
 DEVICE = "cuda:1" if torch.cuda.is_available() and torch.cuda.device_count() > 1 else "cpu"
 # vllm-aeon holds 44 GB on GPU 1, leaving ~4 GB free. ECAPA+WavLM together are ~500 MB.
@@ -58,7 +60,7 @@ def main() -> None:
     try:
         ecapa = EncoderClassifier.from_hparams(
             source="speechbrain/spkrec-ecapa-voxceleb",
-            savedir=str(RUN_DIR / ".cache/speechbrain_ecapa"),
+            savedir=str(RUN / ".cache/speechbrain_ecapa"),
             run_opts={"device": sb_device},
         )
     except Exception as e:
@@ -66,7 +68,7 @@ def main() -> None:
         sb_device = "cpu"
         ecapa = EncoderClassifier.from_hparams(
             source="speechbrain/spkrec-ecapa-voxceleb",
-            savedir=str(RUN_DIR / ".cache/speechbrain_ecapa"),
+            savedir=str(RUN / ".cache/speechbrain_ecapa"),
             run_opts={"device": "cpu"},
         )
 

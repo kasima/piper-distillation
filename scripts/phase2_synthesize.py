@@ -16,13 +16,15 @@ from pathlib import Path
 import requests
 
 RUN = Path(__file__).resolve().parent.parent
+import json as _piper_json
+OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
 CFG = json.loads((RUN / "run_config.json").read_text())
-CORPUS = RUN / "phase1/corpus.txt"
-OUT_DIR = RUN / "phase2/audio_raw"
-META = RUN / "state/phase2/metadata_raw.csv"
-DONE = RUN / "state/phase2/done.txt"
-LOG = RUN / "state/phase2/synthesis_log.jsonl"
-STATE = RUN / "state/phase2"
+CORPUS = OUT / "phase1/corpus.txt"
+OUT_DIR = OUT / "phase2/audio_raw"
+META = OUT / "state/phase2/metadata_raw.csv"
+DONE = OUT / "state/phase2/done.txt"
+LOG = OUT / "state/phase2/synthesis_log.jsonl"
+STATE = OUT / "state/phase2"
 
 ENDPOINT = CFG["teacher"]["endpoint"]
 PARAMS = CFG["teacher"]["params"]

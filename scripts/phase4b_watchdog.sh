@@ -6,12 +6,14 @@
 set -uo pipefail  # no -e: we want to keep going on transient errors
 
 RUN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LOG="${RUN}/logs/watchdog.log"
+VOICE_ID="$(python3 -c "import json,sys;print(json.load(open(\"${RUN}/run_config.json\"))[\"teacher\"][\"voice_id\"])")"
+OUT="${RUN}/output/${VOICE_ID}"
+LOG="${OUT}/logs/watchdog.log"
 UNIT="piper-train-takashii-full"
-CHECKPOINTS="${RUN}/phase4-full/checkpoints"
+CHECKPOINTS="${OUT}/phase4-full/checkpoints"
 TARGET="${CHECKPOINTS}/*step=40000*.ckpt"
 
-mkdir -p "${RUN}/logs"
+mkdir -p "${OUT}/logs"
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "${LOG}"
@@ -32,10 +34,10 @@ while true; do
     log "spawning orchestrator to chain Phase 5A → 6A → 5B → 6B → C → finalize"
     cd "${RUN}"
     PYTHONUNBUFFERED=1 nohup .venv/bin/python3 -u scripts/orchestrate.py \
-      >> "${RUN}/logs/orchestrate.log" 2>&1 < /dev/null &
+      >> "${OUT}/logs/orchestrate.log" 2>&1 < /dev/null &
     ORCH_PID=$!
     disown ${ORCH_PID} 2>/dev/null || true
-    echo "${ORCH_PID}" > "${RUN}/state/orchestrate.pid"
+    echo "${ORCH_PID}" > "${OUT}/state/orchestrate.pid"
     log "orchestrator spawned (PID ${ORCH_PID})"
     exit 0
   fi
@@ -62,13 +64,13 @@ while true; do
   if [ "${RESTART_COUNT}" -ge "${MAX_RESTARTS}" ]; then
     log "RESTART LIMIT (${MAX_RESTARTS}) hit; giving up"
     echo "$(date): Run B watchdog gave up after ${MAX_RESTARTS} restarts" \
-      >> "${RUN}/state/notifications.txt"
+      >> "${OUT}/state/notifications.txt"
     exit 2
   fi
   RESTART_COUNT=$((RESTART_COUNT + 1))
   log "RESTART #${RESTART_COUNT}"
   echo "$(date): Run B watchdog: restart #${RESTART_COUNT} (state=${STATE})" \
-    >> "${RUN}/state/notifications.txt"
+    >> "${OUT}/state/notifications.txt"
   bash "${RUN}/scripts/phase4b_relaunch.sh" >> "${LOG}" 2>&1
   QUIET_TICKS=0
   sleep 60  # let the new unit settle before next health check

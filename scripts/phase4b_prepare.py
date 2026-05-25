@@ -10,18 +10,20 @@ import random
 from pathlib import Path
 
 RUN = Path(__file__).resolve().parent.parent
-META = RUN / "phase3-full/metadata.csv"
-AUDIO = RUN / "phase3-full/audio"
-TRAIN_META = RUN / "phase4-full/train_metadata.csv"
-EVAL_META = RUN / "phase4-full/eval_metadata.csv"
-STATE = RUN / "state/phase4-full"
+import json as _piper_json
+OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+META = OUT / "phase3-full/metadata.csv"
+AUDIO = OUT / "phase3-full/audio"
+TRAIN_META = OUT / "phase4-full/train_metadata.csv"
+EVAL_META = OUT / "phase4-full/eval_metadata.csv"
+STATE = OUT / "state/phase4-full"
 
 EVAL_SIZE = 250
 
 
 def main() -> None:
     STATE.mkdir(parents=True, exist_ok=True)
-    (RUN / "phase4-full").mkdir(parents=True, exist_ok=True)
+    (OUT / "phase4-full").mkdir(parents=True, exist_ok=True)
     rows = []
     with META.open() as f:
         for row in csv.reader(f, delimiter="|"):

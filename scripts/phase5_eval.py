@@ -34,13 +34,15 @@ import whisper
 
 import os
 RUN = Path(__file__).resolve().parent.parent
-PHASE0 = RUN / "state/phase0"
+import json as _piper_json
+OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+PHASE0 = OUT / "state/phase0"
 # Variant: "" (default = Run A curated) or "full" (Run B with WER drops recovered)
 _VARIANT = os.environ.get("PIPER_DISTILL_EVAL_VARIANT", "")
 _SUFFIX = f"-{_VARIANT}" if _VARIANT else ""
-EVAL_META = RUN / f"phase4{_SUFFIX}/eval_metadata.csv"
-PHASE3_AUDIO = RUN / f"phase3{_SUFFIX}/audio"  # teacher reference WAVs
-STATE = RUN / f"state/phase5{_SUFFIX}"
+EVAL_META = OUT / f"phase4{_SUFFIX}/eval_metadata.csv"
+PHASE3_AUDIO = OUT / f"phase3{_SUFFIX}/audio"  # teacher reference WAVs
+STATE = OUT / f"state/phase5{_SUFFIX}"
 
 ECAPA_CENTROID = np.load(PHASE0 / "ecapa_centroid.npy")
 WAVLM_CENTROID = np.load(PHASE0 / "wavlm_centroid.npy")
@@ -71,7 +73,7 @@ def synth_piper(checkpoint: Path, sentences: list[tuple[str, str]], out_dir: Pat
             raise RuntimeError(f"ONNX export failed: {export_log.stderr}")
     # Piper CLI needs the .onnx.json config alongside the .onnx — copy from training config
     if not onnx_json.exists():
-        shutil.copy(RUN / "phase4/config.json", onnx_json)
+        shutil.copy(OUT / "phase4/config.json", onnx_json)
 
     out_map: dict[str, Path] = {}
     for sid, sentence in sentences:

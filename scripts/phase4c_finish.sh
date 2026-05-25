@@ -7,12 +7,14 @@
 set -uo pipefail
 
 RUN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+VOICE_ID="$(python3 -c "import json,sys;print(json.load(open(\"${RUN}/run_config.json\"))[\"teacher\"][\"voice_id\"])")"
+OUT="${RUN}/output/${VOICE_ID}"
 VENV="${RUN}/.venv"
 UNIT="piper-train-takashii-low"
-CKPT_DIR="${RUN}/phase4-low/checkpoints"
-LOG="${RUN}/logs/finish_c.log"
+CKPT_DIR="${OUT}/phase4-low/checkpoints"
+LOG="${OUT}/logs/finish_c.log"
 
-mkdir -p "${RUN}/logs"
+mkdir -p "${OUT}/logs"
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "${LOG}"; }
 log "finish-C starting (PID $$)"
 
@@ -21,7 +23,7 @@ log "step 1/6: launching training via phase4c_relaunch.sh"
 bash "${RUN}/scripts/phase4c_relaunch.sh" >> "${LOG}" 2>&1
 if [ $? -ne 0 ]; then
   log "FAILED: relaunch returned non-zero"
-  echo "$(date): Run C finish: relaunch failed" >> "${RUN}/state/notifications.txt"
+  echo "$(date): Run C finish: relaunch failed" >> "${OUT}/state/notifications.txt"
   exit 1
 fi
 
@@ -45,7 +47,7 @@ while true; do
   if [ "${QUIET_TICKS}" -lt 2 ]; then sleep 30; continue; fi
   if [ "${RESTART_COUNT}" -ge "${MAX_RESTARTS}" ]; then
     log "RESTART LIMIT hit; giving up"
-    echo "$(date): Run C finish: restart limit hit" >> "${RUN}/state/notifications.txt"
+    echo "$(date): Run C finish: restart limit hit" >> "${OUT}/state/notifications.txt"
     exit 2
   fi
   RESTART_COUNT=$((RESTART_COUNT + 1))
@@ -61,7 +63,7 @@ sleep 5
 
 # 4. Run Phase 5C eval on last 3 checkpoints
 log "step 4/6: Phase 5C eval"
-rm -rf "${RUN}/state/phase5-low/"*
+rm -rf "${OUT}/state/phase5-low/"*
 CKPTS=$(ls -t "${CKPT_DIR}"/*.ckpt | head -3 | tac)
 EVAL_ARGS=""
 for c in ${CKPTS}; do EVAL_ARGS="${EVAL_ARGS} --checkpoint ${c}"; done
@@ -71,7 +73,7 @@ PIPER_DISTILL_EVAL_VARIANT=low PYTHONUNBUFFERED=1 \
   "${VENV}/bin/python3" scripts/phase5_eval.py ${EVAL_ARGS} >> "${LOG}" 2>&1
 if [ $? -ne 0 ]; then
   log "Phase 5C eval failed"
-  echo "$(date): Run C finish: Phase 5C eval failed" >> "${RUN}/state/notifications.txt"
+  echo "$(date): Run C finish: Phase 5C eval failed" >> "${OUT}/state/notifications.txt"
   exit 3
 fi
 
@@ -79,15 +81,15 @@ fi
 log "step 5/6: Phase 6C install"
 WINNER=$("${VENV}/bin/python3" -c "
 import json
-m = json.load(open('${RUN}/state/phase5-low/manifest.json'))
+m = json.load(open('${OUT}/state/phase5-low/manifest.json'))
 print(m['winner'])
 ")
-METRICS="${RUN}/state/phase5-low/$(basename ${WINNER} .ckpt)/metrics.json"
+METRICS="${OUT}/state/phase5-low/$(basename ${WINNER} .ckpt)/metrics.json"
 log "winner: $(basename ${WINNER})"
 "${VENV}/bin/python3" "${RUN}/scripts/phase6_install.py" \
   --checkpoint "${WINNER}" \
   --voice-name "en_US-takashii-low" \
-  --training-config "${RUN}/phase4-low/config.json" \
+  --training-config "${OUT}/phase4-low/config.json" \
   --dataset-label "takashii_full_11713_16khz_30k" \
   --metrics-json "${METRICS}" \
   --no-restart-service >> "${LOG}" 2>&1
@@ -106,4 +108,4 @@ sudo -n systemctl is-active vllm-aeon | head -1 >> "${LOG}"
 
 log "FINISH-C COMPLETE"
 echo "$(date): Run C properly finished at step 30000; all services restored" \
-  >> "${RUN}/state/notifications.txt"
+  >> "${OUT}/state/notifications.txt"

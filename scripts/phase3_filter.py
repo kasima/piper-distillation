@@ -28,12 +28,14 @@ import whisper
 from transformers import AutoFeatureExtractor, WavLMForXVector
 
 RUN = Path(__file__).resolve().parent.parent
-RAW = RUN / "phase2/audio_raw"
-META_RAW = RUN / "state/phase2/metadata_raw.csv"
-OUT_AUDIO = RUN / "phase3/audio"
-OUT_META = RUN / "phase3/metadata.csv"
-STATE = RUN / "state/phase3"
-PHASE0 = RUN / "state/phase0"
+import json as _piper_json
+OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+RAW = OUT / "phase2/audio_raw"
+META_RAW = OUT / "state/phase2/metadata_raw.csv"
+OUT_AUDIO = OUT / "phase3/audio"
+OUT_META = OUT / "phase3/metadata.csv"
+STATE = OUT / "state/phase3"
+PHASE0 = OUT / "state/phase0"
 
 DEVICE = "cuda:1" if torch.cuda.is_available() and torch.cuda.device_count() > 1 else "cpu"
 

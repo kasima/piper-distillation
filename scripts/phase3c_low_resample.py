@@ -16,10 +16,12 @@ import numpy as np
 import soundfile as sf
 
 RUN = Path(__file__).resolve().parent.parent
-SRC_AUDIO = RUN / "phase3-full/audio"
-SRC_META = RUN / "phase3-full/metadata.csv"
-DST_AUDIO = RUN / "phase3-low/audio"
-DST_META = RUN / "phase3-low/metadata.csv"
+import json as _piper_json
+OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+SRC_AUDIO = OUT / "phase3-full/audio"
+SRC_META = OUT / "phase3-full/metadata.csv"
+DST_AUDIO = OUT / "phase3-low/audio"
+DST_META = OUT / "phase3-low/metadata.csv"
 TARGET_SR = 16000
 
 

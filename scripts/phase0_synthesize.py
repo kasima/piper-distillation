@@ -16,10 +16,12 @@ from pathlib import Path
 import requests
 
 RUN = Path(__file__).resolve().parent.parent
-PROBE_PATH = RUN_DIR / "state/phase0/probe_sentences.txt"
-CLIPS_DIR = RUN_DIR / "state/phase0/clips"
-LOG_PATH = RUN_DIR / "state/phase0/synthesis_log.jsonl"
-META_PATH = RUN_DIR / "state/phase0/metadata.csv"
+import json as _piper_json
+OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+PROBE_PATH = OUT / "state/phase0/probe_sentences.txt"
+CLIPS_DIR = OUT / "state/phase0/clips"
+LOG_PATH = OUT / "state/phase0/synthesis_log.jsonl"
+META_PATH = OUT / "state/phase0/metadata.csv"
 
 ENDPOINT = "http://192.168.122.1:8880/v1/audio/speech"
 PAYLOAD_BASE = {
@@ -81,6 +83,10 @@ def synth(sentence_id: int, take: int, sentence: str) -> dict:
 def main() -> None:
     CLIPS_DIR.joinpath("first").mkdir(parents=True, exist_ok=True)
     CLIPS_DIR.joinpath("second").mkdir(parents=True, exist_ok=True)
+    # Seed per-voice probe set from the committed default if missing.
+    if not PROBE_PATH.exists():
+        PROBE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        PROBE_PATH.write_text((RUN / "scripts/probe_sentences.txt").read_text())
     sentences = [
         s.strip() for s in PROBE_PATH.read_text().splitlines() if s.strip()
     ]

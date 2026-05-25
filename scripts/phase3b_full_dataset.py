@@ -28,15 +28,17 @@ import numpy as np
 import soundfile as sf
 
 RUN = Path(__file__).resolve().parent.parent
-SRC_META = RUN / "phase3/metadata.csv"
-SRC_AUDIO = RUN / "phase3/audio"
-DROPS = RUN / "state/phase3/drops.jsonl"
-RAW = RUN / "phase2/audio_raw"
-CORPUS = RUN / "phase1/corpus.txt"
+import json as _piper_json
+OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+SRC_META = OUT / "phase3/metadata.csv"
+SRC_AUDIO = OUT / "phase3/audio"
+DROPS = OUT / "state/phase3/drops.jsonl"
+RAW = OUT / "phase2/audio_raw"
+CORPUS = OUT / "phase1/corpus.txt"
 
-DST_AUDIO = RUN / "phase3-full/audio"
-DST_META = RUN / "phase3-full/metadata.csv"
-STATE = RUN / "state/phase3-full"
+DST_AUDIO = OUT / "phase3-full/audio"
+DST_META = OUT / "phase3-full/metadata.csv"
+STATE = OUT / "state/phase3-full"
 
 
 def resample_22k(src: Path, dst: Path) -> float:

@@ -34,6 +34,8 @@ import wave
 from pathlib import Path
 
 RUN = Path(__file__).resolve().parent.parent
+import json as _piper_json
+OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
 VENV = RUN / ".venv"
 PIPER_SRC = RUN / "piper1-gpl"
 SERVICE_MODELS = Path("/home/kasima/src/sysadmin/piper/models")
@@ -253,7 +255,7 @@ def main() -> None:
 
     ckpt = Path(args.checkpoint)
     voice = args.voice_name
-    out_dir = Path(args.output_dir) if args.output_dir else RUN / "phase6" / voice
+    out_dir = Path(args.output_dir) if args.output_dir else OUT / "phase6" / voice
     out_dir.mkdir(parents=True, exist_ok=True)
 
     onnx = out_dir / f"{voice}.onnx"
