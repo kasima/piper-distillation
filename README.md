@@ -110,29 +110,37 @@ the ~18-hour run.
 
 ### Agent prompt
 
-Once the prerequisites are in place, paste something like this to your
+Once the prerequisites are in place, paste this verbatim to your
 coding agent:
 
-> Run the `piper-distillation` pipeline to distill the voice
-> `<your-voice-id>` from the TTS server at
-> `<http://your-teacher-host:port>`. The deployed voice name should be
-> `en_US-<yourvoice>-medium`. Install the final ONNX into
-> `<absolute-path-to-wyoming-piper-data-dir>` and restart `piper.service`
-> after.
+> Run the `piper-distillation` pipeline end-to-end. Before doing anything,
+> ask me for these three values up front and don't proceed until I
+> answer:
 >
-> Read `AGENTS.md` first — it's the execution reference. Install any
-> missing system packages (cmake, ninja-build, espeak-ng, wget,
+> 1. **`voice_id`** — the voice ID registered with the teacher TTS (e.g.,
+>    the `voice` parameter that the teacher's `/v1/audio/speech` endpoint
+>    accepts)
+> 2. **`teacher_url`** — the teacher TTS server URL (the base URL whose
+>    `/v1/audio/speech` endpoint you'll call)
+> 3. **`onnx_dest_dir`** — the absolute path to the `wyoming-piper` data
+>    directory where Phase 6 should install the final `.onnx` + `.onnx.json`
+>
+> Once you have them: read `AGENTS.md` (the execution reference); install
+> any missing system packages (cmake, ninja-build, espeak-ng, wget,
 > python3-venv); bootstrap with `bash setup.sh`; update `run_config.json`
-> and `SERVICE_MODELS` in `scripts/phase6_install.py` for the values
-> above; then run the pipeline end-to-end via `scripts/orchestrate.py`.
-> Phase 2 takes ~13 hours; the orchestrator survives shell exits and is
-> resumable, so run it detached.
+> with the `voice_id` and `teacher_url` and set `voice_name` to
+> `en_US-<voice_id_lowercased>-medium` (unless I tell you a different
+> name); set `SERVICE_MODELS` in `scripts/phase6_install.py` to
+> `onnx_dest_dir`; then run the pipeline end-to-end via
+> `scripts/orchestrate.py`. Phase 2 takes ~13 hours; the orchestrator
+> survives shell exits and is resumable, so run it detached.
 >
-> Halt and surface to me if you hit any of the halt conditions listed in
-> AGENTS.md (Phase 0 teacher consistency below threshold, Phase 3
-> retained audio below 2 hours, training NaN/OOM/divergence, etc.).
-> Notify me when the final `.onnx` is installed and the smoke test
-> passes.
+> Halt and surface to me **only** if you hit one of the halt conditions
+> listed in AGENTS.md (Phase 0 teacher consistency below threshold,
+> Phase 3 retained audio below 2 hours, training NaN/OOM/divergence,
+> etc.). Everything else: log it to
+> `output/<voice_id>/state/notifications.txt` and keep going. Notify me
+> when the final `.onnx` is installed and the smoke test passes.
 
 The agent does the bootstrap, fills in the config, kicks off the run,
 and watches for halt conditions. You wake up ~18 hours later to a
