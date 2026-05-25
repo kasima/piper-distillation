@@ -111,12 +111,8 @@ human is to satisfy the prerequisites, then hand the agent a prompt.
 5. **Disk:** ~50 GB free for the working directory (12k synthesized WAVs
    dominate; the rest is checkpoints, eval audio, logs).
 
-6. **This repo cloned and bootstrapped:**
-   ```
-   bash setup.sh
-   ```
-   Creates a venv, clones the patched piper trainer fork, downloads and
-   cleans the Lessac warm-start checkpoint. ~10 minutes on first run.
+6. **This repo cloned to a working directory.** Everything else
+   (`setup.sh`, config edits, pipeline run) is the agent's job.
 
 ### Agent prompt
 
@@ -124,18 +120,18 @@ Once the prerequisites are in place, paste something like this to your
 coding agent:
 
 > Run the `piper-distillation` pipeline to distill the voice
-> `<your-teacher-voice-id>` from the TTS server running at
+> `<your-teacher-voice-id>` from the TTS server at
 > `<http://your-teacher-host:port>`. The voice's reference clip is at
 > `<absolute-path-to-ref.wav>`. The deployed voice name should be
-> `en_US-<yourvoice>-medium`.
+> `en_US-<yourvoice>-medium`. Install the final ONNX into
+> `<absolute-path-to-wyoming-piper-data-dir>` and restart `piper.service`
+> after.
 >
-> The full execution reference is in `AGENTS.md` — read it first. Then
-> update `run_config.json` for these values, set
-> `SERVICE_MODELS` in `scripts/phase6_install.py` to the wyoming-piper
-> data directory where you want the final ONNX installed, and run the
-> pipeline end-to-end via `scripts/orchestrate.py`. Phase 2 will take
-> ~13 hours; the orchestrator survives shell exits and is resumable, so
-> run it detached.
+> Read `AGENTS.md` first — it's the execution reference. Bootstrap with
+> `bash setup.sh`, update `run_config.json` and `SERVICE_MODELS` in
+> `scripts/phase6_install.py` for the values above, then run the pipeline
+> end-to-end via `scripts/orchestrate.py`. Phase 2 takes ~13 hours; the
+> orchestrator survives shell exits and is resumable, so run it detached.
 >
 > Halt and surface to me if you hit any of the halt conditions listed in
 > AGENTS.md (Phase 0 teacher consistency below threshold, Phase 3
@@ -143,8 +139,8 @@ coding agent:
 > Notify me when the final `.onnx` is installed and the smoke test
 > passes.
 
-The agent reads `AGENTS.md`, fills in the config, kicks off the run,
-and watches for halt conditions. You wake up 18 hours later to a
+The agent does the bootstrap, fills in the config, kicks off the run,
+and watches for halt conditions. You wake up ~18 hours later to a
 deployed voice. (Or, you check in periodically — the orchestrator
 writes `state/notifications.txt` for any milestones or alerts.)
 
