@@ -2,8 +2,8 @@
 
 Distill a running OpenAI-compatible TTS server into a self-contained
 [Piper](https://github.com/OHF-Voice/piper1-gpl) VITS `.onnx` model you can
-deploy to a `wyoming-piper` host or any ONNX TTS runtime that understands
-Piper voice configs.
+deploy to a `wyoming-piper` host for Home Assistant or any ONNX TTS runtime 
+that understands Piper voice configs.
 
 The original motivating use case was a custom voice clone in
 [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) — a heavy server-side
@@ -36,11 +36,6 @@ real serving needs, and you want:
 - Lower per-request latency than the teacher
 - A static, deployable artifact (no GPU server dependency at inference)
 - A voice servable by the broader Piper ecosystem
-
-You'd **not** use this if the voice already has a Piper model in the
-upstream catalog ([rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices)),
-if you can record a real speaker (cleaner training data), or if your
-voice needs are met by a generic neutral voice.
 
 ## How the pipeline works (conceptually)
 
@@ -143,8 +138,7 @@ writes `state/notifications.txt` for any milestones or alerts.)
 
 ## Status
 
-Works for the use case it was built for. It's been run end-to-end
-exactly once. Generalization is partial:
+Works for the use case it was built for. Generalization is partial:
 
 - ✅ Works end-to-end for English voices via espeak-ng phonemization
 - ✅ Resumable; each phase survives crashes and re-runs
