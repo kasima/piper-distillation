@@ -1,0 +1,33 @@
+# --- runtime + machine-local ---
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Cloned out-of-tree (use scripts/setup.sh to reclone)
+piper1-gpl/
+
+# --- warm-start checkpoints (downloaded via setup.sh) ---
+checkpoints/
+
+# --- per-run artifacts (all regeneratable) ---
+state/
+logs/
+phase1/sources/
+phase1/corpus.txt
+phase1/corpus.tsv
+phase1/phonemes_cache.tsv
+phase2/
+phase3/
+phase3-*/
+phase4/
+phase4-*/
+phase5/
+phase5-*/
+phase6/
+phase6-*/
+.cache/
+
+# OS detritus
+.DS_Store
+._*
