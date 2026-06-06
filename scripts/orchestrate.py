@@ -119,6 +119,11 @@ def wait_for_phase2() -> None:
 def relaunch_phase2() -> None:
     log("relaunching Phase 2")
     out = OUT / "logs/phase2.log"
+    # Ensure state dir exists before writing the pid file — phase2_synthesize
+    # creates it lazily on first clip, so writing the pid immediately after
+    # Popen() races the subprocess and can FileNotFoundError otherwise.
+    (OUT / "state/phase2").mkdir(parents=True, exist_ok=True)
+    out.parent.mkdir(parents=True, exist_ok=True)
     cmd = [str(VENV / "bin/python3"), str(RUN / "scripts/phase2_synthesize.py")]
     with out.open("a") as logf:
         proc = subprocess.Popen(
