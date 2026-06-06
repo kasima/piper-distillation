@@ -35,10 +35,15 @@ from pathlib import Path
 
 RUN = Path(__file__).resolve().parent.parent
 import json as _piper_json
-OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+_CFG = _piper_json.loads((RUN / __import__("os").environ.get("PIPER_DISTILL_CONFIG", "run_config.json")).read_text())
+OUT = RUN / "output" / _CFG["teacher"]["voice_id"]
 VENV = RUN / ".venv"
 PIPER_SRC = RUN / "piper1-gpl"
-SERVICE_MODELS = Path("/home/kasima/src/sysadmin/piper/models")
+# wyoming-piper data dir where the .onnx + .onnx.json get installed. Config-
+# driven (host.onnx_dest_dir) so a new deployment doesn't need a code edit;
+# defaults to the original bernard layout.
+SERVICE_MODELS = Path(_CFG.get("host", {}).get("onnx_dest_dir",
+                                               "/home/kasima/src/sysadmin/piper/models"))
 
 SMOKE_SENTENCES = [
     "The library opens at nine in the morning every weekday.",

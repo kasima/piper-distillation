@@ -35,7 +35,7 @@ import whisper
 import os
 RUN = Path(__file__).resolve().parent.parent
 import json as _piper_json
-OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+OUT = RUN / "output" / _piper_json.loads((RUN / __import__("os").environ.get("PIPER_DISTILL_CONFIG", "run_config.json")).read_text())["teacher"]["voice_id"]
 PHASE0 = OUT / "state/phase0"
 # Variant: "" (default = Run A curated) or "full" (Run B with WER drops recovered)
 _VARIANT = os.environ.get("PIPER_DISTILL_EVAL_VARIANT", "")

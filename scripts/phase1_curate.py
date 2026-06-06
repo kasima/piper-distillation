@@ -30,7 +30,7 @@ from pathlib import Path
 
 RUN = Path(__file__).resolve().parent.parent
 import json as _piper_json
-OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+OUT = RUN / "output" / _piper_json.loads((RUN / __import__("os").environ.get("PIPER_DISTILL_CONFIG", "run_config.json")).read_text())["teacher"]["voice_id"]
 SOURCES = OUT / "phase1/sources"
 OUT_CORPUS = OUT / "phase1/corpus.txt"
 OUT_TSV = OUT / "phase1/corpus.tsv"

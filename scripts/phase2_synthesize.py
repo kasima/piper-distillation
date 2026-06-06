@@ -17,8 +17,8 @@ import requests
 
 RUN = Path(__file__).resolve().parent.parent
 import json as _piper_json
-OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
-CFG = json.loads((RUN / "run_config.json").read_text())
+OUT = RUN / "output" / _piper_json.loads((RUN / __import__("os").environ.get("PIPER_DISTILL_CONFIG", "run_config.json")).read_text())["teacher"]["voice_id"]
+CFG = json.loads((RUN / __import__("os").environ.get("PIPER_DISTILL_CONFIG", "run_config.json")).read_text())
 CORPUS = OUT / "phase1/corpus.txt"
 OUT_DIR = OUT / "phase2/audio_raw"
 META = OUT / "state/phase2/metadata_raw.csv"

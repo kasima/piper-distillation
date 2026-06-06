@@ -16,8 +16,16 @@ from pathlib import Path
 
 RUN = Path(__file__).resolve().parent.parent
 import json as _piper_json
-OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
-VOICE_LOWER = _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"].lower()
+CFG = _piper_json.loads((RUN / __import__("os").environ.get("PIPER_DISTILL_CONFIG", "run_config.json")).read_text())
+VOICE_ID = CFG["teacher"]["voice_id"]
+VOICE_LOWER = VOICE_ID.lower()
+VOICE_NAME = CFG["voice_name"]                      # deployed name, e.g. en_US-computer-medium
+OUT = RUN / "output" / VOICE_ID
+# Which training runs to do. "A" = curated (medium 22 kHz); "B" = full dataset
+# with WER-recovered clips (only useful for accented teachers where the WER
+# filter drops signal); "C" = low 16 kHz (a different-sounding model, rarely
+# wanted). Default to A only; the original Takashii run set ["A","B","C"].
+RUNS = [r.upper() for r in CFG.get("runs", ["A"])]
 UNIT_A = f"piper-train-{VOICE_LOWER}"
 UNIT_B = f"piper-train-{VOICE_LOWER}-full"
 UNIT_C = f"piper-train-{VOICE_LOWER}-low"
@@ -249,9 +257,9 @@ def run_phase6() -> None:
     rc = run_cmd([
         str(VENV / "bin/python3"), str(RUN / "scripts/phase6_install.py"),
         "--checkpoint", winner,
-        "--voice-name", "en_US-takashii-medium",
+        "--voice-name", VOICE_NAME,
         "--training-config", str(OUT / "phase4/config.json"),
-        "--dataset-label", "takashii_curated_8143",
+        "--dataset-label", f"{VOICE_ID.lower()}_curated",
         "--metrics-json", str(metrics_json),
         "--no-restart-service",
     ], cwd=RUN)
@@ -459,22 +467,27 @@ def main() -> None:
         stop_vllm_aeon()
         run_phase3()
         run_phase4_prep()
-        run_phase4_train()   # Run A: curated (8143 clips)
+        run_phase4_train()   # Run A: curated
         run_phase5()         # eval Run A
-        run_phase6()         # install Run A → en_US-takashii-medium
-        # ---- A/B: do Run B before restarting vllm-aeon ----
-        run_phase4b_train()  # Run B: full (11713 clips)
-        run_phase5b()        # eval Run B
-        run_phase6b()        # install Run B → en_US-takashii-medium-full
-        # ---- Run C: low-quality 16 kHz ----
-        run_phase4c_train()  # Run C: low-quality 16 kHz, same full dataset
-        run_phase5c()        # eval Run C
-        run_phase6c()        # install Run C → en_US-takashii-low
-        restart_piper_service()  # one restart, all three voices picked up
+        run_phase6()         # install Run A → VOICE_NAME
+        installed = [VOICE_NAME]
+        # ---- Run B: full dataset with WER-recovered clips (accented teachers) ----
+        if "B" in RUNS:
+            run_phase4b_train()
+            run_phase5b()
+            run_phase6b()
+            installed.append(f"{VOICE_NAME}-full")
+        # ---- Run C: low-quality 16 kHz (different-sounding model) ----
+        if "C" in RUNS:
+            run_phase4c_train()
+            run_phase5c()
+            run_phase6c()
+            installed.append(VOICE_NAME.replace("-medium", "-low"))
+        restart_piper_service()  # one restart, all new voices picked up
         start_vllm_aeon()
-        log("orchestrator finished successfully (Run A + B + C)")
+        log(f"orchestrator finished successfully (runs {'+'.join(RUNS)})")
         write_status({"phase": "complete"})
-        notify("All three runs complete. Voices live: en_US-takashii-medium, en_US-takashii-medium-full, en_US-takashii-low")
+        notify(f"Run(s) {'+'.join(RUNS)} complete. Voices live: {', '.join(installed)}")
     except SystemExit as e:
         log(f"orchestrator exited with code {e.code}")
         # Even on failure, try to restart vllm-aeon if it was stopped

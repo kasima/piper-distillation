@@ -1,0 +1,97 @@
+{
+  "voice_name": "en_US-computer-medium",
+  "teacher": {
+    "endpoint": "http://192.168.122.1:8880/v1/audio/speech",
+    "service_name": "qwen-tts",
+    "voice_id": "Computer",
+    "params": {
+      "model": "qwen3-tts",
+      "variant": "base",
+      "language": "English",
+      "instructions": "",
+      "response_format": "wav",
+      "stream": false
+    },
+    "ref_path": "/home/kasima/.cache/qwen-tts/voices/Computer/ref.wav",
+    "ref_sha256": "7053fe5d8f57da4cbdcf199702dd38bb1fa59df6272186d1c09537d0a4dde60f",
+    "output_sample_rate_hz": 24000,
+    "output_channels": 1,
+    "output_format": "pcm_s16le",
+    "single_request_latency_seconds_mean": 4.11,
+    "single_request_chars_per_test": 51,
+    "single_request_ms_per_char": 80,
+    "concurrency_max_safe": 2,
+    "concurrency_probe": {
+      "n1_serial_seconds_mean": 4.11,
+      "n2_effective_per_request_seconds": 3.39,
+      "n4_effective_per_request_seconds": 3.74,
+      "n2_speedup": 1.21,
+      "n4_speedup": 1.1,
+      "decision": "N=2 \u2014 meaningful speedup with low GPU 0 contention; N=4 plateaus"
+    }
+  },
+  "host": {
+    "hostname": "bernard",
+    "working_dir": "/home/kasima/src/piper-distillation",
+    "project_venv": "/home/kasima/src/piper-distillation/.venv",
+    "vllm_service_name": "vllm-aeon",
+    "stop_vllm_for_phase2": false,
+    "stop_vllm_for_phase4": true,
+    "training_gpu_index": 1,
+    "teacher_gpu_index": 0,
+    "onnx_dest_dir": "/home/kasima/src/sysadmin/piper/models"
+  },
+  "domain_text_path": null,
+  "notification": {
+    "type": "chat",
+    "mirror_file": "state/notifications.txt"
+  },
+  "quality_bar": {
+    "composite_score_floor": 0.7,
+    "below_floor_is_blocking": false
+  },
+  "limits": {
+    "phase2_max_days": 5,
+    "phase4_max_hours": 72,
+    "phase4_min_steps": 20000,
+    "phase4_max_steps": 100000,
+    "disk_alarm_gb": 80,
+    "disk_halt_gb": 150,
+    "gpu_temp_halt_c": 85
+  },
+  "metric_strategy": {
+    "mode": "mvp_first",
+    "mvp_metrics": [
+      "ecapa",
+      "wavlm",
+      "wer",
+      "utmos"
+    ],
+    "expand_full_stack_if_composite_between": [
+      0.55,
+      0.75
+    ]
+  },
+  "phase4": {
+    "checkpoint_interval_steps": 1000,
+    "probe_interval_steps": 2000,
+    "review_milestones_steps": [
+      5000,
+      15000,
+      30000
+    ],
+    "review_interval_after_30k_steps": 10000,
+    "training_systemd_unit_name": "piper-train-computer",
+    "training_gpu_devices_arg": "[1]"
+  },
+  "started_at": "2026-06-06",
+  "operator": "kasima",
+  "filters": {
+    "wer_enabled": true,
+    "wer_max": 0.25
+  },
+  "notes": "Teacher applies the LCARS band-pass 'comms' effect SERVER-SIDE (qwen-tts effect.txt), so Phase 2 audio is band-limited to ~3.6 kHz. The effect is intentionally baked into the student model. WER filter relaxed to 0.25 because band-limiting degrades Whisper transcription (high-WER clips are signal, per the Takashii accented-voice lesson).",
+  "runs": [
+    "A"
+  ]
+}

@@ -11,7 +11,9 @@
 set -euo pipefail
 
 RUN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VOICE_ID="$(python3 -c "import json,sys;print(json.load(open(\"${RUN}/run_config.json\"))[\"teacher\"][\"voice_id\"])")"
+CFG="${RUN}/${PIPER_DISTILL_CONFIG:-run_config.json}"
+VOICE_ID="$(python3 -c "import json;print(json.load(open(\"${CFG}\"))[\"teacher\"][\"voice_id\"])")"
+VOICE_NAME="$(python3 -c "import json;print(json.load(open(\"${CFG}\"))[\"voice_name\"])")"
 OUT="${RUN}/output/${VOICE_ID}"
 VOICE_LOWER="$(echo "${VOICE_ID}" | tr '[:upper:]' '[:lower:]')"
 VENV="${RUN}/.venv"
@@ -38,13 +40,13 @@ mkdir -p "${CACHE_DIR}" "${OUT}/phase4/logs"
 
 systemd-run --user \
   --unit="${UNIT}" \
-  --description="Piper VITS fine-tune (Takashii voice clone)" \
+  --description="Piper VITS fine-tune (${VOICE_NAME} voice clone)" \
   --setenv=CUDA_VISIBLE_DEVICES=1 \
   --setenv=PYTHONUNBUFFERED=1 \
   --working-directory="${RUN}/piper1-gpl" \
   -- \
   "${VENV}/bin/python3" -m piper.train fit \
-    --data.voice_name "en_US-takashii-medium" \
+    --data.voice_name "${VOICE_NAME}" \
     --data.csv_path "${TRAIN_META}" \
     --data.audio_dir "${AUDIO_DIR}" \
     --model.sample_rate 22050 \

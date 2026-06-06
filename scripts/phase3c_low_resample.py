@@ -17,7 +17,7 @@ import soundfile as sf
 
 RUN = Path(__file__).resolve().parent.parent
 import json as _piper_json
-OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+OUT = RUN / "output" / _piper_json.loads((RUN / __import__("os").environ.get("PIPER_DISTILL_CONFIG", "run_config.json")).read_text())["teacher"]["voice_id"]
 SRC_AUDIO = OUT / "phase3-full/audio"
 SRC_META = OUT / "phase3-full/metadata.csv"
 DST_AUDIO = OUT / "phase3-low/audio"

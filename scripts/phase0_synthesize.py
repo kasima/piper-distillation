@@ -17,7 +17,7 @@ import requests
 
 RUN = Path(__file__).resolve().parent.parent
 import json as _piper_json
-OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+OUT = RUN / "output" / _piper_json.loads((RUN / __import__("os").environ.get("PIPER_DISTILL_CONFIG", "run_config.json")).read_text())["teacher"]["voice_id"]
 PROBE_PATH = OUT / "state/phase0/probe_sentences.txt"
 CLIPS_DIR = OUT / "state/phase0/clips"
 LOG_PATH = OUT / "state/phase0/synthesis_log.jsonl"

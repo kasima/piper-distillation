@@ -130,6 +130,33 @@ produces noticeably different pronunciation than the medium variant on
 the same data, not just a downsampled version; treat it as a separate
 voice).
 
+## Multi-voice: versioned per-voice configs
+
+`run_config.json` is the *active* config every script reads, but per-voice
+configs are versioned under `configs/<name>.json` so multiple voices coexist
+in the repo. Switch the active voice with:
+
+```
+./select-voice.sh computer      # copies configs/computer.json -> run_config.json
+./select-voice.sh               # show active voice + list available configs
+```
+
+All run state is keyed by `teacher.voice_id` (`output/<voice_id>/...`), so
+voices never collide; run them sequentially, re-selecting between. Scripts also
+honor `PIPER_DISTILL_CONFIG=<path>` as an override for ad-hoc single-phase runs,
+but the orchestrated run reads `run_config.json` (set it via `select-voice.sh`).
+
+New config knobs (beyond the original schema):
+- `voice_name` — drives Phase 4 `--data.voice_name` and Phase 6 install name
+  (no longer hardcoded to Takashii).
+- `runs` — list of training runs to do: `"A"` curated/medium (default), `"B"`
+  full+WER-recovered (only for accented teachers), `"C"` low 16 kHz. New voices
+  use `["A"]`.
+- `filters.wer_max` / `filters.wer_enabled` — Phase 3 Whisper-WER threshold.
+  Raise (or disable) for accented OR band-limited teachers where high-WER clips
+  are signal (e.g. the Computer comms voice, low-passed to ~3.6 kHz, uses 0.25).
+- `host.onnx_dest_dir` — Phase 6 install dir (was hardcoded `SERVICE_MODELS`).
+
 ## Running the pipeline for a new voice
 
 Steps assume the teacher voice is already registered in qwen-tts.

@@ -29,7 +29,8 @@ from transformers import AutoFeatureExtractor, WavLMForXVector
 
 RUN = Path(__file__).resolve().parent.parent
 import json as _piper_json
-OUT = RUN / "output" / _piper_json.loads((RUN / "run_config.json").read_text())["teacher"]["voice_id"]
+_CFG = _piper_json.loads((RUN / __import__("os").environ.get("PIPER_DISTILL_CONFIG", "run_config.json")).read_text())
+OUT = RUN / "output" / _CFG["teacher"]["voice_id"]
 RAW = OUT / "phase2/audio_raw"
 META_RAW = OUT / "state/phase2/metadata_raw.csv"
 OUT_AUDIO = OUT / "phase3/audio"
@@ -47,7 +48,14 @@ WAVLM_MIN = P0["derived_phase3_thresholds"]["wavlm_min"]
 ECAPA_CENTROID = np.load(PHASE0 / "ecapa_centroid.npy")
 WAVLM_CENTROID = np.load(PHASE0 / "wavlm_centroid.npy")
 
-WHISPER_WER_MAX = 0.08
+# WER filter is config-driven (run_config.json "filters" block). For an
+# accented OR band-limited teacher (e.g. the Computer comms voice, low-passed
+# to ~3.6 kHz), Whisper struggles to transcribe and the high-WER clips are
+# signal, not noise — raise wer_max or disable. Defaults preserve the original
+# 8% behavior for a clean full-band teacher.
+_FILT = _CFG.get("filters", {})
+WHISPER_WER_ENABLED = bool(_FILT.get("wer_enabled", True))
+WHISPER_WER_MAX = float(_FILT.get("wer_max", 0.08))
 DUR_RATIO_MIN = 0.04  # seconds per char (lower)
 DUR_RATIO_MAX = 0.12  # seconds per char (upper)
 INTERNAL_SILENCE_MAX_MS = 800
@@ -225,7 +233,7 @@ def main() -> None:
             drops.append({"id": sid, "filter": "whisper_error", "error": repr(e)})
             continue
         w = wer(sentence, transcript)
-        if w > WHISPER_WER_MAX:
+        if WHISPER_WER_ENABLED and w > WHISPER_WER_MAX:
             drops.append({"id": sid, "filter": "wer", "wer": w,
                           "ref": sentence, "hyp": transcript})
             continue
