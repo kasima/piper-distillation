@@ -45,8 +45,12 @@ cp -rf .venv/lib/python3.12/site-packages/piper/espeak-ng-data piper1-gpl/src/pi
 .venv/bin/pip uninstall -y piper-tts >/dev/null
 .venv/bin/pip install --quiet -e './piper1-gpl[train]'
 
-# Build monotonic_align Cython extension (separate Cython build, not scikit-build)
-(cd piper1-gpl && ./build_monotonic_align.sh)
+# Build monotonic_align Cython extension (separate Cython build, not scikit-build).
+# build_monotonic_align.sh calls `cythonize`, which is NOT pulled in by
+# piper1-gpl[train]; install Cython explicitly first or the build fails with
+# "cythonize: command not found".
+.venv/bin/pip install --quiet cython
+(cd piper1-gpl && PATH="${REPO}/.venv/bin:$PATH" ./build_monotonic_align.sh)
 
 echo "=== [5/6] install eval + analysis deps ==="
 .venv/bin/pip install --quiet \
