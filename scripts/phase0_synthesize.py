@@ -17,21 +17,17 @@ import requests
 
 RUN = Path(__file__).resolve().parent.parent
 import json as _piper_json
-OUT = RUN / "output" / _piper_json.loads((RUN / __import__("os").environ.get("PIPER_DISTILL_CONFIG", "run_config.json")).read_text())["teacher"]["voice_id"]
+_CFG = _piper_json.loads((RUN / __import__("os").environ.get("PIPER_DISTILL_CONFIG", "run_config.json")).read_text())
+OUT = RUN / "output" / _CFG["teacher"]["voice_id"]
 PROBE_PATH = OUT / "state/phase0/probe_sentences.txt"
 CLIPS_DIR = OUT / "state/phase0/clips"
 LOG_PATH = OUT / "state/phase0/synthesis_log.jsonl"
 META_PATH = OUT / "state/phase0/metadata.csv"
 
-ENDPOINT = "http://192.168.122.1:8880/v1/audio/speech"
-PAYLOAD_BASE = {
-    "model": "qwen3-tts",
-    "voice": "Takashii",
-    "language": "English",
-    "instructions": "",
-    "response_format": "wav",
-    "stream": False,
-}
+# Config-driven (was hardcoded to voice=Takashii — a bug that built the Phase 0
+# centroid from the WRONG voice, so Phase 3 speaker-verify dropped every clip).
+ENDPOINT = _CFG["teacher"].get("endpoint", "http://192.168.122.1:8880/v1/audio/speech")
+PAYLOAD_BASE = {**_CFG["teacher"].get("params", {}), "voice": _CFG["teacher"]["voice_id"]}
 CONCURRENCY = 2
 TIMEOUT_SECONDS = 60
 
