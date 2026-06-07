@@ -180,6 +180,11 @@ def main() -> None:
     }
     with (OUT_DIR / "consistency.json").open("w") as f:
         json.dump(summary, f, indent=2)
+    # Phase 3 reads the Phase 0 manifest at state/phase0/manifest.json (canonical
+    # per-phase manifest name) for derived_phase3_thresholds + the centroids.
+    # Write it here too so the consistency output and the manifest never drift.
+    with (OUT_DIR / "manifest.json").open("w") as f:
+        json.dump(summary, f, indent=2)
     with (OUT_DIR / "per_clip_metrics.csv").open("w") as f:
         writer = csv.DictWriter(f, fieldnames=list(per_clip[0].keys()), delimiter="|")
         writer.writeheader()
