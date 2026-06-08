@@ -359,6 +359,40 @@ Resumability: each phase is restartable. Phases 2, 3, 4 have explicit
 `done.txt` / checkpoint-based resume. Phases 1, 5, 6 are cheap enough to
 re-run end-to-end.
 
+## Multi-voice gotchas (found + fixed 2026-06-08, Computer/Adjutant run)
+
+The pipeline was built single-voice; generalizing it to a second/third voice
+surfaced four latent bugs where "Takashii" was effectively hardcoded. All fixed
+in-tree, but recorded here because the failure modes are non-obvious:
+
+- **`phase0_synthesize.py` hardcoded `voice: "Takashii"`.** Phase 0 built the
+  reference centroid from the *wrong speaker*; Phase 3 speaker-verify then
+  dropped ~100% of the real voice's clips (ECAPA ~0 to the Takashii centroid)
+  → "retained 0.00h, below floor" halt. Symptom to watch: Phase 0 self-sim for
+  two different voices coming back nearly identical. Now reads `teacher.params`
+  + `voice_id` from config.
+- **Phase 0 wrote `consistency.json`; Phase 3 read `manifest.json`.** A clean
+  Phase 0 (run via the scripts, not a hand-written manifest) left Phase 3
+  crashing `FileNotFoundError` on `state/phase0/manifest.json`. Phase 0 now
+  writes both.
+- **`phase4_train.sh` hardcoded `--data.voice_name en_US-takashii-medium`** —
+  every voice trained labeled as Takashii. Now reads `voice_name` from config.
+- **`orchestrate.py` `relaunch_phase2` wrote the pid file before `state/phase2/`
+  existed** (raced the subprocess that creates it) → orchestrator crash on the
+  auto-bootstrap path. The original run never hit it because Phase 2 was started
+  manually first. Now `mkdir`s first.
+
+Also `setup.sh` didn't install Cython (the `monotonic_align` build needs
+`cythonize`) — fixed. General lesson: anything that was only ever exercised for
+the first voice (Phase 0 voice, install name, the orchestrator's Phase 2
+auto-relaunch) is a candidate for a hardcoded assumption.
+
+Band-limited teacher note: ECAPA self-similarity reads low on band-limited audio
+(the Computer comms voice: 0.688 vs WavLM 0.965) even though the voice is
+genuinely consistent. Don't treat the 0.75 ECAPA halt gate as authoritative for
+such teachers — cross-check WavLM and the Phase 2 internal consistency; the
+derived Phase 3 threshold scales with the measured self-sim so it self-adjusts.
+
 ## Future-work toolkit extraction
 
 The pieces are all here, but the scripts still carry a few host-specific

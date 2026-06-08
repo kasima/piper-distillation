@@ -145,20 +145,26 @@ coding agent:
 The agent does the bootstrap, fills in the config, kicks off the run,
 and watches for halt conditions. You wake up ~18 hours later to a
 deployed voice. (Or, you check in periodically — the orchestrator
-writes `state/notifications.txt` for any milestones or alerts.)
+writes `state/notifications.txt` for any milestones or alerts. Just ask
+your agent.)
 
 ## Status
 
-Works for the use case it was built for. Generalization is partial:
+Used in production for three distilled voices (Takashii, Computer, Adjutant).
 
 - ✅ Works end-to-end for English voices via espeak-ng phonemization
 - ✅ Resumable; each phase survives crashes and re-runs
-- ⚠️ `run_config.json` schema isn't fully parameterized — install paths,
-  systemd unit names, and a few GPU index assumptions are still hardcoded
-  to the original deployment's layout. A future refactor pulls these out
-  into CLI args + per-host config.
-- ⚠️ Tested only against one teacher TTS. Other OpenAI-compatible TTS
-  hosts should work with minor edits to `scripts/phase2_synthesize.py`
+- ✅ **Multi-voice**: per-voice configs under `configs/<name>.json`, switched
+  with `./select-voice.sh <name>` (or `PIPER_DISTILL_CONFIG=<path>`). Run state
+  is keyed by `teacher.voice_id`, so voices never collide. `voice_name`, the
+  training runs (`runs`), the Phase 3 WER threshold (`filters.wer_max`), and
+  the install dir (`host.onnx_dest_dir`) are all config-driven — no per-voice
+  code edits. See AGENTS.md "Multi-voice".
+- ⚠️ A few host assumptions remain (GPU index assumptions, systemd-based train
+  launch). Fine on the original two-GPU host; portability beyond it is the
+  remaining future-work item (see AGENTS.md "Future-work toolkit extraction").
+- ⚠️ Tested only against one teacher TTS (qwen-tts). Other OpenAI-compatible
+  TTS hosts should work with minor edits to `scripts/phase2_synthesize.py`
   but aren't tested.
 
 ## What's in the repo

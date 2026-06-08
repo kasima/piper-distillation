@@ -16,3 +16,8 @@ output/
 # OS detritus
 .DS_Store
 ._*
+
+# speechbrain model cache + ad-hoc logs/scripts
+.cache/
+*.log
+monitor_*.sh
